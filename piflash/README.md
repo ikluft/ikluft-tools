@@ -18,20 +18,20 @@ The piflash script only works on Linux systems. It depends on features of the Li
 
 The following programs must exist on the system to run piflash.
 * dd
-** on RPM systems, install coreutils.
+..* on RPM systems, install coreutils.
 * gunzip
-** on RPM systems, install gzip.
+..* on RPM systems, install gzip.
 * lsblk
-** on RPM systems, install util-linux.
+..* on RPM systems, install util-linux.
 * sudo
-** on RPM systems, install sudo.
+..* on RPM systems, install sudo.
 * sync
-** on RPM systems, install coreutils.
+..* on RPM systems, install coreutils.
 * true
-** on RPM systems, install coreutils.
+..* on RPM systems, install coreutils.
 * unzip
-** on RPM systems, install unzip.
+..* on RPM systems, install unzip.
 * xz
-** on RPM systems, install xz.
+..* on RPM systems, install xz.
 
 Since the program uses sudo to establish root privileges, it looks for these programs in the standard locations of /usr/bin, /sbin, /usr/sbin or /bin. If your installation has any in other locations, set the environment variable `XXX_PROG` (replacing XXX with the name of the program in all upper case, such as `DD_PROG`) with the path to the program. Make sure it's a program you know is secure, provided by your OS distribution or something you built from sources. Running unknown programs with root privilege would open a potential security breach on your system.
