@@ -35,3 +35,10 @@ The following programs must exist on the system to run piflash.
   * on RPM systems, install xz.
 
 Since the program uses sudo to establish root privileges, it looks for these programs in the standard locations of /usr/bin, /sbin, /usr/sbin or /bin. If your installation has any in other locations, set the environment variable `XXX_PROG` (replacing XXX with the name of the program in all upper case, such as `DD_PROG`) with the path to the program. Make sure it's a program you know is secure, provided by your OS distribution or something you built from sources. Running unknown programs with root privilege would open a potential security breach on your system.
+
+##   Safety Checks
+The program makes a number of safety checks for you. Since the flashing process usually needs root permissions, these are considered prudent precautions.
+* The input file's format will be checked. If it ends in .img then it will be flashed directly as a binary image file. If it ends in .xz, .gzip or .zip, it will extract the binary image from the file. If the filename doesn't have a suffix, libmagic will be used to inspect the contents of the file (for "magic numbers") to determine its format.
+* The output device must be a block device.
+* If the output device is a mounted filesystem, it will refuse to erase it.
+* If the output device is not an SD card, it will refuse to erase it.
