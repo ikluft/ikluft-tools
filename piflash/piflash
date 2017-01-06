@@ -55,13 +55,13 @@ If the output device is a mounted filesystem, it will refuse to erase it.
 =item *
 If the output device is not an SD card, it will refuse to erase it.
 
-= back
+=back
 
 =head2 Automated Flashing Procedure
 
 Piflash automates the process of flashing an SD card from various Raspberry Pi OS images.
 
-= over 1
+=over 1
 
 =item *
 For most disk images, either in a raw *.img file, compressed in a *.gz or *.xz file, or included in a *.zip archive, piflash recognizes the file format and extracts the disk image for flashing, eliminating the step of uncompressing or unarchiving it before it can be flashed to the SD.

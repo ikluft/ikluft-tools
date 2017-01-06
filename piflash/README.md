@@ -1,4 +1,4 @@
-# piflash - Flash an SD card for a Raspberry Pi with safety checks
+# NAME
 
 piflash - Raspberry Pi SD-flashing script with safety checks to avoid erasing the wrong device
 
@@ -23,13 +23,9 @@ The program makes a number of safety checks for you. Since the flashing process 
 - If the output device is a mounted filesystem, it will refuse to erase it.
 - If the output device is not an SD card, it will refuse to erase it.
 
-    &#x3d; back
-
 ## Automated Flashing Procedure
 
 Piflash automates the process of flashing an SD card from various Raspberry Pi OS images.
-
-&#x3d; over 1
 
 - For most disk images, either in a raw \*.img file, compressed in a \*.gz or \*.xz file, or included in a \*.zip archive, piflash recognizes the file format and extracts the disk image for flashing, eliminating the step of uncompressing or unarchiving it before it can be flashed to the SD.
 - For zip archives, it checks if it contains the Raspberry Pi NOOBS (New Out Of the Box System), in which case it handles it differently. The steps it takes are similar to the instructions that one would have to follow manually.  It formats a new VFAT filesystem on the card. (FAT/VFAT is the only format recognized by the Raspberry Pi's simple boot loader.) Then it copies the contents of the zip archive into the card, automating the entire flashing process even for a NOOBS system, which previously didn't even have instructions to be done from Linux systems.
@@ -62,15 +58,3 @@ libmagic/file-libs, File::LibMagic (perl)
 The piflash script can be downloaded with this command.
 
         curl https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
-
-# POD ERRORS
-
-Hey! **The above document had some coding errors, which are explained below:**
-
-- Around line 60:
-
-    You forgot a '=back' before '=head2'
-
-- Around line 66:
-
-    '=item' outside of any '=over'
