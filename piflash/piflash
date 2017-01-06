@@ -55,7 +55,55 @@ If the output device is a mounted filesystem, it will refuse to erase it.
 =item *
 If the output device is not an SD card, it will refuse to erase it.
 
+= back
+
+=head2 Automated Flashing Procedure
+
+Piflash automates the process of flashing an SD card from various Raspberry Pi OS images.
+
+= over 1
+
+=item *
+For most disk images, either in a raw *.img file, compressed in a *.gz or *.xz file, or included in a *.zip archive, piflash recognizes the file format and extracts the disk image for flashing, eliminating the step of uncompressing or unarchiving it before it can be flashed to the SD.
+
+=item *
+For zip archives, it checks if it contains the Raspberry Pi NOOBS (New Out Of the Box System), in which case it handles it differently. The steps it takes are similar to the instructions that one would have to follow manually.  It formats a new VFAT filesystem on the card. (FAT/VFAT is the only format recognized by the Raspberry Pi's simple boot loader.) Then it copies the contents of the zip archive into the card, automating the entire flashing process even for a NOOBS system, which previously didn't even have instructions to be done from Linux systems.
+
 =back
+
+=head1 INSTALLATION
+
+The piflash script only works on Linux systems. It depends on features of the Linux kernel to look up whether the output device is an SD card and other information about it. It has been tested so far on Fedora 25, and some experimentation with Ubuntu 16.04 (in a virtual machine) to get the kernel parameters right for a USB SD card reader.
+
+=head2 System Dependencies
+
+Some programs and libraries must be installed on the system for piflash to work - most packages have such dependencies.
+
+On RPM-based Linux systems (Red Hat, Fedora, CentOS) the following command, run as root, will install the dependencies.
+
+	dnf install coreutils util-linux sudo perl file-libs perl-File-LibMagic gzip unzip xz e2fsprogs dosfstools
+
+On Deb-based Linux systems (Debian, Ubuntu, Raspbian) the following command, run as root, will install the dependencies.
+
+	apt-get install coreutils util-linux klibc-utils sudo perl-base libmagic1 libfile-libmagic-perl gzip xz-utils e2fsprogs dosfstools
+
+On source-based or other Linux distributions, make sure the following are installed:
+
+=over 1
+
+=item programs
+blockdev, dd, echo, gunzip, lsblk, mkdir, mkfs.vfat, mount, perl, sfdisk, sudo, sync, true, umount, unzip, xz
+
+=item libraries
+libmagic/file-libs, File::LibMagic (perl)
+
+=back
+
+=head2 Piflash script
+
+The piflash script can be downloaded with this command.
+
+	curl https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
 
 =cut
 
@@ -66,37 +114,120 @@ If the output device is not an SD card, it will refuse to erase it.
 # recognized file suffixes which SD cards can be flashed from
 my @known_suffixes = qw(gz zip xz img);
 
-# verbose mode prints more details - use --verbose flag to enable it for troubleshooting or reporting bugs
-my $verbose = 0;
-
-# known secure program locations
-# This program doesn't rely on $PATH to find programs since it uses root privileges.
-# This prevents any programs by the same names in the search path from gaining root privs from our use of them.
-my %prog;
-
-# find program locations and store them in %prog
-sub find_prog
+# State class to hold program state, and print it all out in case of errors
+# this is a low-level package - it stores state data but at this level has no knowledge of what is being stored in it
+package State
 {
-	# hard-code known-secure locations of programs here if you need to override any on your system
-	# $prog{name} = "/path/to/name";
+	# initialize state as empty
+	BEGIN { $State::state = undef; }
 
-	# loop through needed programs and record locations from environment variable or system directories
-	FINDPROG: for my $progname ( qw(dd gunzip lsblk sudo sync true unzip xz)) {
-		if (exists $ENV{uc $progname."_PROG"} and -x $ENV{uc $progname."_PROG"}) {
-			$prog{$progname} = $ENV{uc $progname."_PROG"};
-			next FINDPROG;
-		}
-		for my $path ( "/usr/bin", "/sbin", "/usr/sbin", "/bin" ) {
-			if (-x "$path/$progname") {
-				$prog{$progname} = "$path/$progname";
-				next FINDPROG;
+	# initialize class' singleton object from parameters
+	# class method
+	sub init
+	{
+		my $class = shift;
+		(defined $State::state) and return; # don't damage data if called again
+		$State::state = {};
+		bless $State::state, $class;
+		my $self = $State::state;
+		while (scalar @_ > 0) {
+			my $top_level_param = shift;
+
+			# create top-level hash named for the parameter
+			$self->{$top_level_param} = {};
+
+			# generate class accessor methods named for the parameter
+			{
+				# get symbol table for State package so we can add accessor functions named for top-level hashes
+				my $symtab = \%State::;
+
+				# accessor fieldname()
+				$symtab->{$top_level_param} = sub {
+					my $name = shift;
+					my $value = shift;
+					if (defined $value) {
+						# got name & value - set the new value for name
+						$self->{$top_level_param}{$name} = $value;
+					} elsif (defined $name) {
+						# got only name - return the value/ref of name
+						return (exists $self->{$top_level_param}{$name})
+							? $self->{$top_level_param}{$name}
+							: undef;
+					} else {
+						# no name or value - return ref to top-level hash (top_level_parameter from init() context)
+						return $self->{$top_level_param};
+					}
+				};
+
+				# accessor has_fieldname()
+				$symtab->{"has_".$top_level_param} = sub {
+					my $name = shift;
+					return ((exists $self->{$top_level_param}) and (exists $self->{$top_level_param}{$name}));
+				}
 			}
 		}
-
-		# if we get here, we didn't find a known secure location for the program
-		die "unknown secure location for $progname - install it or set "	
-			.(uc $progname."_PROG")." to point to it";
 	}
+
+	# dump data structure recursively, part of verbose state output
+	# intended as a lightweight equivalent of Data::Dumper without requiring installation of an extra package
+	# object method
+	sub odump
+	{
+		my ($obj, $level) = @_;
+		my $str = "";
+		if (!defined $obj) {
+			# bail out for undefined value
+			return "";
+		} elsif (!ref $obj) {
+			# process plain scalar
+			$str .= ("    " x $level)."[value]".$obj."\n";
+		} elsif (ref $obj eq "SCALAR") {
+			# process scalar reference
+			$str .= ("    " x $level).$$obj."\n";
+		} elsif (ref $obj eq "HASH" or ref $obj eq "State") {
+			# process hash reference
+			foreach my $key (sort {lc $a cmp lc $b} keys %$obj) {
+				if (ref $obj->{$key}) {
+					$str .= ("    " x $level)."$key:"."\n";
+					$str .= odump($obj->{$key}, $level+1);
+				} else {
+					$str .= ("    " x $level)."$key: ".$obj->{$key}."\n";
+				}
+			}
+		} elsif (ref $obj eq "ARRAY") {
+			# process array reference
+			foreach my $entry (@$obj) {
+				if (ref $entry) {
+					$str .= odump($entry, $level+1);
+				} else {
+					$str .= ("    " x $level)."$entry\n";
+				}
+			}
+		} elsif (ref $obj eq "CODE") {
+			# process function reference
+			$str .= ("    " x $level)."[function]$obj"."\n";
+		} else {
+			# other references/unknown type
+			my $type = ref $obj;
+			$str .= ("    " x $level)."[$type]$obj"."\n";
+		}
+		return $str;
+	}
+
+	# die/exception with verbose state dump
+	# class method
+	sub die
+	{
+		my $class = shift;
+		my $message = shift;
+		die "error: ".$message.(main::verbose() ? "\nProgram state dump...\n".odump($State::state,0) : "");
+	}
+}
+
+# return boolean value for verbose mode
+sub verbose
+{
+	return State::option("verbose") // 0;
 }
 
 # print program usage message
@@ -110,22 +241,59 @@ sub usage
 # usage: run( label, command_line)
 #   label: a descriptive name of the action this is performing
 #   command_line: shell command line (pipes and other shell metacharacters allowed)
-sub run
+# note: if there are no shell special characters then all command-line parameters need to be passed separately.
+# If there are shell special characters then it will be given to the shell for parsing.
+sub cmd
 {
 	my $cmdname = shift;
-	if ($verbose) {
+	if (verbose()) {
 		say STDERR "running: ".join(" ", @_);
 	}
-	system ( @_ );
+	system (@_);
 	if ($? == -1) {
-		die "failed to execute $cmdname command: $!";
+		State->die("failed to execute $cmdname command: $!");
 	} elsif ($? & 127) {
-		die sprintf "%s command died with signal %d, %s coredump",
-			$cmdname, ($? & 127),  ($? & 128) ? 'with' : 'without';
+		State->die(sprintf "%s command died with signal %d, %s coredump",
+			$cmdname, ($? & 127),  ($? & 128) ? 'with' : 'without');
 	} elsif ($? != 0) {
-		die sprintf "%s command exited with value %d", $cmdname, $? >> 8;
+		State->die(sprintf "%s command exited with value %d", $cmdname, $? >> 8);
 	}
 	return 1;
+}
+
+# run a command and return the output as a string
+sub cmd2str
+{
+	my $cmd = join(" ", @_);
+	return qx($cmd);
+}
+
+# look up secure program path
+sub prog
+{
+	my $progname = shift;
+	my $prog = State::system("prog");
+	if (exists $prog->{$progname}) {
+		return $prog->{$progname};
+	}
+
+	# if we didn't have the location of the program, look for it and cache the result
+	if (exists $ENV{uc $progname."_PROG"} and -x $ENV{uc $progname."_PROG"}) {
+		$prog->{$progname} = $ENV{uc $progname."_PROG"};
+		return $prog->{$progname};
+	}
+
+	# search paths in order emphasizing recent Linux Filesystem that prefers /usr/bin, then Unix PATH order
+	for my $path ("/usr/bin", "/sbin", "/usr/sbin", "/bin") {
+		if (-x "$path/$progname") {
+			$prog->{$progname} = "$path/$progname";
+			return $prog->{$progname};
+		}
+	}
+
+	# if we get here, we didn't find a known secure location for the program
+	State->die("unknown secure location for $progname - install it or set "	
+			.(uc $progname."_PROG")." to point to it");
 }
 
 # base function: get basename from a file path
@@ -146,8 +314,230 @@ sub slurp
 		<$fh>
 	};
 	close $fh;
+	if (wantarray) {
+		my @str = split /^/, $str;
+		chomp @str;
+		return @str;
+	}
 	chomp $str;
 	return $str;
+}
+
+# collect data about the system: kernel specs, program locations
+sub collect_system_info
+{
+	my $system = State::system();
+
+	# Make sure we're on a Linux system - this program uses Linux-only features
+	($system->{sysname}, $system->{nodename}, $system->{release}, $system->{version},
+		$system->{machine}) = POSIX::uname();
+	if ($system->{sysname} ne "Linux") {
+		die "This depends on features of Linux. Found $system->{sysname} kernel - cannot continue.";
+	}
+
+	# hard-code known-secure locations of programs here if you need to override any on your system
+	# $prog{name} = "/path/to/name";
+
+	# loop through needed programs and record locations from environment variable or system directories
+	my %paths_used;
+	$system->{prog} = {};
+
+	# set PATH in environment as a precaution - we don't intend to use it but mkfs does
+	# search paths in standard Unix PATH order
+	my @path;
+	for my $path ("/sbin", "/usr/sbin", "/bin", "/usr/bin") {
+		# include in PATH standard Unix directories which exist on this system
+		if (-d $path) {
+			push @path, $path;
+		}
+	}
+	$ENV{PATH} = join ":", @path;
+	$system->{PATH} = $ENV{PATH};
+
+	# find filesystems supported by this kernel (for formatting SD card)
+	my %fs_pref = (vfat => 1, ext4 => 2, ext3 => 3, ext2 => 4, exfat => 5, other => 6); # fs preference order
+	my @filesystems = grep {! /^nodev\s/} slurp("/proc/filesystems");
+	for (my $i=0; $i<=$#filesystems; $i++) {
+		# remove leading and trailing whitespace;
+		$filesystems[$i] =~ s/^\s*//;
+		$filesystems[$i] =~ s/\s*$//;
+	}
+	# sort list by decreasing preference (increasing numbers)
+	$system->{filesystems} = [ sort {($fs_pref{$a} // $fs_pref{other})
+		<=> ($fs_pref{$b} // $fs_pref{other})} @filesystems ];
+	$system->{primary_fs} = $system->{filesystems}[0];
+
+	# find locations where we can put mount points
+	foreach my $dir ( qw(/run/media /media /mnt) ) {
+		if ( -d $dir ) {
+			State::system("media_dir", $dir); # use the first one
+			last;
+		}
+	}
+}
+
+# collect input file info
+# verify existence, deduce file type from contents, get size, check for raw filesystem image or NOOBS archive
+sub collect_file_info
+{
+	my $input = State::input();
+
+	# verify input file exists
+	if (! -e $input->{path}) {
+		State->die("input ".$input->{path}." does not exist");
+	}
+	if (! -f $input->{path}) {
+		State->die("input ".$input->{path}." is not a regular file");
+	}
+
+	# use libmagic/file to collect file data
+	# it is collected even if type will be determined by suffix so we can later inspect data further
+	{
+		my $magic = File::LibMagic->new();
+		$input->{info} = $magic->info_from_filename($input->{path});
+		if ($input->{info}{mime_type} eq "application/gzip"
+			or $input->{info}{mime_type} eq "application/x-xz")
+		{
+			my $uncompress_magic = File::LibMagic->new(uncompress => 1);
+			$input->{info}{uncompress} = $uncompress_magic->info_from_filename($input->{path});
+		}
+	}
+
+	# parse the file name
+	$input->{parse} = {};
+	($input->{parse}{name}, $input->{parse}{path}, $input->{parse}{suffix})
+		= fileparse($input->{path}, map {".".$_} @known_suffixes);
+
+	# use libmagic/file to determine file type from contents
+	say "input file is a ".$input->{info}{description};
+	if ($input->{info}{description} =~ /^Zip archive data/i) {
+		$input->{type} = "zip";
+	} elsif ($input->{info}{description} =~ /^gzip compressed data/i) {
+		$input->{type} = "gz";
+	} elsif ($input->{info}{description} =~ /^XZ compressed data/i) {
+		$input->{type} = "xz";
+	} elsif ($input->{info}{description} =~ /^DOS\/MBR boot sector/i) {
+		$input->{type} = "img";
+	}
+	if (!exists $input->{type}) {
+		die "collect_file_info(): file type not recognized on $input->{path}";
+	}
+
+	# get file size - start with raw file size, update later if it's compressed/archive
+	$input->{size} = -s $input->{path};
+
+	# find embedded image in archived/compressed files (either *.img or a NOOBS image)
+	if ($input->{type} eq "zip") {
+		# process zip archives
+		my @zip_content = cmd2str(prog("unzip"), "-l", qq("$input->{path}"));
+		chomp @zip_content;
+		my $found_build_data = 0;
+		my @imgfiles;
+		my $zip_lastline = pop @zip_content; # last line contains total size
+		$zip_lastline =~ /^\s*(\d+)/;
+		$input->{size} = $1;
+		foreach my $zc_entry (@zip_content) {
+			if ($zc_entry =~ /\sBUILD-DATA$/) {
+				$found_build_data = 1;
+			} elsif ($zc_entry =~ /^\s*(\d+)\s.*\s([^\s]*)$/) {
+				push @imgfiles, [$2, $1];
+			}
+		}
+
+		# detect if the zip archive contains Raspberry Pi NOOBS (New Out Of the Box System)
+		if ($found_build_data) {
+			my @noobs_version = grep {/^NOOBS Version:/} cmd2str(prog("unzip"), "-p", qq("$input->{path}"),
+				"BUILD-DATA");
+			chomp @noobs_version;
+			if (scalar @noobs_version > 0) {
+				if ($noobs_version[0] =~ /^NOOBS Version: (.*)/) {
+					$input->{NOOBS} = $1;
+				}
+			}
+		}
+
+		# if NOOBS system was not found, look for a *.img file
+		if (!exists $input->{NOOBS}) {
+			if (scalar @imgfiles == 0) {
+				die "input file is a zip archive but does not contain a *.img file or NOOBS system";
+			}
+			$input->{imgfile} = $imgfiles[0][0];
+			$input->{size} = $imgfiles[0][1];
+		}
+	} elsif ($input->{type} eq "gz") {
+		# process gzip compressed files
+		my @gunzip_out = cmd2str(prog("gunzip"), "--list --quiet", qq("$input->{path}"));
+		chomp @gunzip_out;
+		$gunzip_out[0] =~ /^\s+\d+\s+(\d+)\s+[\d.]+%\s+(.*)/;
+		$input->{size} = $1;
+		$input->{imgfile} = $2;
+	} elsif ($input->{type} eq "xz") {
+		# process xz compressed files
+		if ($input->{path} =~ /^.*\/([^\/]*\.img)\.xz/) {
+			$input->{imgfile} = $1;
+		}
+		my @xz_out = cmd2str(prog("xz"), "--robot --list", qq("$input->{path}"));
+		chomp @xz_out;
+		foreach my $xz_line (@xz_out) {
+			if ($xz_line =~ /^file\s+\d+\s+\d+\s+\d+\s+(\d+)/) {
+				$input->{size} = $1;
+				last;
+			}
+		}
+	}
+}
+
+# collect output device info
+sub collect_device_info
+{
+	my $output = State::output();
+
+	# check that device exists
+	if (! -e $output->{path}) {
+		State->die("output device ".$output->{path}." does not exist");
+	}
+	if (! -b $output->{path}) {
+		State->die("output device ".$output->{path}." is not a block device");
+	}
+
+	# check block device parameters
+
+	# load block device info into %output
+	blkparam("MOUNTPOINT", "FSTYPE", "SIZE", "SUBSYSTEMS", "TYPE");
+	if ($output->{mountpoint} ne "") {
+		State->die("output device is mounted - this operation would erase it");
+	}
+	if ($output->{fstype} eq "swap") {
+		State->die("output device is a swap device - this operation would erase it");
+	}
+	if ($output->{type} eq "part") {
+		State->die("output device is a partition - Raspberry Pi flash needs whole SD device");
+	}
+	{
+		# make sure the SD card driver operates this device
+		my $found_mmc = 0;
+		my @subsystems = split /:/, $output->{subsystems};
+		foreach my $subsystem (@subsystems) {
+			if ($subsystem eq "mmc_host" or $subsystem eq "mmc") {
+				$found_mmc = 1;
+				last;
+			}
+		}
+		if (!$found_mmc) {
+			State->die("output device is not operated by SD card driver - this operation would erase it");
+		}
+	}
+
+	# verify that the device is actually an SD card (should be for mmc_host devices)
+	my $sysfs_devtype_path = "/sys/block/".base($output->{path})."/device/type";
+	if (! -f $sysfs_devtype_path) {
+		State->die("cannot find output device type - Linux kernel ".State::system("release")." may be too old");
+	}
+	my $sysfs_devtype = slurp($sysfs_devtype_path);
+	verbose() and say "output device is a $sysfs_devtype";
+	if ($sysfs_devtype ne "SD") {
+		State->die("output device is not an SD card - this operation would erase it");
+	}
 }
 
 # blkparam function: get device information with lsblk command
@@ -156,314 +546,224 @@ sub slurp
 #   param-name: list of parameter names to read into output hash
 sub blkparam
 {
-	my $output_ref = shift;
-	foreach my $paramname ( @_ ) {
-		if (exists $output_ref->{lc $paramname}) {
+	my $output = State::output();
+
+	foreach my $paramname (@_) {
+		if (exists $output->{lc $paramname}) {
 			# skip names of existing data to avoid overwriting
 			say STDERR "blkparam(): skipped collection of parameter $paramname to avoid overwriting existing data";
 			next;
 		}
-		my $value = qx($prog{lsblk} --nodeps --noheadings --output $paramname "$output_ref->{path}");
+		my $value = cmd2str(prog("lsblk"), "--bytes --nodeps --noheadings --output $paramname",
+			qq("$output->{path}"));
 		if ($? == -1) {
-			die "blkparam(): failed to execute lsblk: $!";
+			State->die("blkparam($paramname): failed to execute lsblk: $!");
 		} elsif ($? & 127) {
-			die sprintf "blkparam(): lsblk died with signal %d, %s coredump",
-				($? & 127),  ($? & 128) ? 'with' : 'without';
+			State->die(sprintf "blkparam($paramname): lsblk died with signal %d, %s coredump",
+				($? & 127),  ($? & 128) ? 'with' : 'without');
 		} elsif ($? != 0) {
-			die sprintf "blkparam(): lsblk exited with value %d", $? >> 8;
+			State->die(sprintf "blkparam($paramname): lsblk exited with value %d", $? >> 8);
 		}
 		$value =~ s/^\s*//;	# remove leading whitespace
 		$value =~ s/\s*$//;	# remove trailing whitespace
-		$output_ref->{lc $paramname} = $value;
+		$output->{lc $paramname} = $value;
 	}
 }
 
-# deduce file type from name/suffix or contents
-sub deduce_file_type
+# print numbers with readable suffixes for megabytes, gigabytes, terabytes, etc
+# handle more prefixes than currently needed for extra scalability to keep up with Moore's Law for a while
+sub num_readable
 {
-	my $input_ref = shift;
-
-	# use libmagic/file to collect file data
-	# it is collected even if type will be determined by suffix so we can later inspect data further
-	my $magic = File::LibMagic->new();
-	$input_ref->{info} = $magic->info_from_filename($input_ref->{path});
-
-	# try file suffix first
-	my ($name, $path, $suffix) = fileparse($input_ref->{path}, @known_suffixes);
-	if (-s $suffix) {
-		$input_ref->{type} = $suffix;
-		return;
+	my $num = shift;
+	my @suffixes = qw(bytes KB MB GB TB PB EB ZB);
+	my $magnitude = int(log($num)/log(1024));
+	if ($magnitude > $#suffixes) {
+		$magnitude = $#suffixes;
 	}
-
-	# use libmagic/file to determine file type from contents
-	say "input file is a ".$input_ref->{info}{description};
-	if ($input_ref->{info}{description} =~ /^Zip archive data/) {
-		$input_ref->{type} = "zip";
-		return;
-	} elsif ($input_ref->{info}{description} =~ /^gzip compressed data/) {
-		$input_ref->{type} = "gz";
-		return;
-	} elsif ($input_ref->{info}{description} =~ /^XZ compressed data/) {
-		$input_ref->{type} = "xz";
-		return;
-	} elsif ($input_ref->{info}{description} =~ /^DOS\/MBR boot sector/) {
-		$input_ref->{type} = "img";
-		return;
-	}
-	die "deduce_file_type(): file type not recognized on $input_ref->{path}";
+	my $num_base = $num/(1024**($magnitude));
+	return sprintf "%4.2f%s", $num_base, $suffixes[$magnitude];
 }
 
-# State class to hold program state, and print it out in case of errors
-package State
+# generate random hex digits
+sub random_hex
 {
-	# instantiate a new State object
-	sub new {
-		my $class = shift;
-		my $self = {};
-		bless $self, $class;
-		$self->_initialize(@_);
-		return $self;
+	my $length = shift;
+	my $hex = "";
+	while ($length > 0) {
+		my $chunk = ($length > 4) ? 4 : $length;
+		$length -= $chunk;
+		$hex .= sprintf "%0*x", $chunk, int(rand(16**$chunk));
 	}
+	return $hex;
+}
 
-	# initialize object from parameters
-	sub _initialize
-	{
-		my $self = shift;
-		while ( scalar @_ > 1 ) {
-			my $name = shift;
-			my $value = shift;
-			$self->{$name} = $value;
-		}
-	}
+# generate a random UUID
+# 128 bits/32 hexadecimal digits, used to set a probably-unique UUID on an ext2/3/4 filesystem we created
+sub random_uuid
+{
+	my $uuid;
 
-	# dump data structure recursively, part of verbose state output
-	# this is a lightweight equivalent of Data::Dumper without requiring installation of an extra package
-	sub odump
-	{
-		my ($obj, $level) = @_;
-		my $str = "";
-		if (!defined $obj) {
-			return "";
-		} elsif (!ref $obj) {
-			$str = ("    " x $level).$obj."\n";
-		} elsif (ref $obj eq "SCALAR") {
-			$str = ("    " x $level).$$obj."\n";
-		} elsif (ref $obj eq "HASH" or ref $obj eq "State") {
-			foreach my $key (sort keys %$obj) {
-				if (ref $obj->{$key}) {
-					$str .= ("    " x $level)."$key:"."\n";
-					$str .= odump($obj->{$key}, $level+1);
-				} else {
-					$str .= ("    " x $level)."$key: $obj->{$key}"."\n";
-				}
-			}
-		} elsif (ref $obj eq "ARRAY") {
-			foreach my $entry (@$obj) {
-				if (ref $entry) {
-					$str .= odump($entry, $level+1);
-				} else {
-					$str .= ("    " x $level).$entry."\n";
-				}
-			}
+	# start with our own contrived prefix for our UUIDs
+	$uuid .= "314decaf-"; # "314" first digits of pi (as in RasPi), and "decaf" among few words from hex digits
+
+	# next 4 digits are from lower 4 hex digits of current time (rolls over every 18 days)
+	$uuid .= sprintf "%04x-", (time & 0xffff);
+
+	# next 4 digits are the UUID format version (4 for random) and 3 random hex digits
+	$uuid .= "4".random_hex(3)."-";
+
+	# next 4 digits are a UUID variant digit and 3 random hex digits
+	$uuid .= (sprintf "%x", 8+int(rand(4))).random_hex(3)."-";
+	
+	# conclude with 8 random hex digits
+	$uuid .= random_hex(12);
+
+	return $uuid;
+}
+
+# generate a random label string
+# 11 characters, used to set a probably-unique label on a VFAT/ExFAT filesystem we created
+sub random_label
+{
+	my $label = "RPI";
+	for (my $i=0; $i<8; $i++) {
+		my $num = int(rand(36));
+		if ($num <= 9) {
+			$label .= chr(ord('0')+$num);
 		} else {
-			my $type = ref $obj;
-			$str = ("    " x $level)."[$type]$obj"."\n";
+			$label .= chr(ord('A')+$num-10);
 		}
-		return $str;
 	}
+	return $label;
+}
 
-	# die/exception with verbose state dump
-	sub die
-	{
-		my $self = shift;
-		my $message = shift;
-		die $message.($verbose ? "\n".odump($self,0) : "");
+# flash the output device from the input file
+sub flash_device
+{
+	# flash the device
+	if (State::has_input("imgfile")) {
+		# if we know an embedded image file name, use it in the start message
+		say "flashing ".State::input("path")." / ".State::input("imgfile")." -> ".State::output("path");
+	} else {
+		# print a start message with source and destination
+		say "flashing ".State::input("path")." -> ".State::output("path");
 	}
+	say "wait for it to finish - this takes a while, some progress without status";
+	if (State::input("type") eq "img") {
+		cmd("dd flash", prog("sudo")." ".prog("dd")." bs=4M if=\"".State::input("path")."\" of=\""
+			.State::output("path")."\" status=progress" );
+	} elsif (State::input("type") eq "zip") {
+		if (State::has_input("NOOBS")) {
+			# format SD and copy NOOBS archive to it
+			my $label = random_label();
+			State::output("label", $label);
+			my $fstype = State::system("primary_fs");
+			if ($fstype ne "vfat") {
+				State->die("NOOBS requires VFAT filesystem, not in this kernel - do you need to load a module?");
+			}
+			say "formatting $fstype filesystem for Raspberry Pi NOOBS system...";
+			cmd("write partition table", prog("echo"), "type=c", "|", prog("sudo"), prog("sfdisk"), State::output("path"));
+			my @partitions = grep {/part\s*$/} cmd2str(prog("lsblk"), "--list", State::output("path"));
+			$partitions[0] =~ /^([^\s]+)\s/;
+			my $partition = "/dev/".$1;
+			cmd("format sd card", prog("sudo"), prog("mkfs.$fstype"), "-n", $label, $partition);
+			my $mntdir = State::system("media_dir")."/piflash/sdcard";
+			cmd("reread partition table", prog("sudo"), prog("blockdev"), "--rereadpt", State::output("path"));
+			cmd("create mount point", prog("sudo"), prog("mkdir"), "-p", $mntdir );
+			cmd("mount SD card", prog("sudo"), prog("mount"), "-t", $fstype, "LABEL=$label", $mntdir);
+			cmd("unzip NOOBS contents", prog("sudo"), prog("unzip"), "-d", $mntdir, State::input("path"));
+			cmd("unmount SD card", prog("sudo"), prog("umount"), $mntdir);
+		} else {
+			# flash zip archive to SD
+			cmd("unzip/dd flash", prog("unzip")." -p \"".State::input("path")."\" \"".State::input("imgfile")
+				."\" | ".prog("sudo")." ".prog("dd")." bs=4M of=\"".State::output("path")."\" status=progress");
+		}
+	} elsif (State::input("type") eq "gz") {
+		# flash gzip-compressed image file to SD
+		cmd("gunzip/dd flash", prog("gunzip")." --stdout \"".State::input("path")."\" | "
+			.prog("sudo")." ".prog("dd")." bs=4M of=\"".State::output("path")."\" status=progress");
+	} elsif (State::input("type") eq "xz") {
+		# flash xz-compressed image file to SD
+		cmd("xz/dd flash", prog("xz")." --decompress --stdout \"".State::input("path")."\" | "
+			.prog("sudo")." ".prog("dd")." bs=4M of=\"".State::output("path")."\" status=progress");
+	}
+	cmd("sync", prog("sync"));
+	say "done - it is safe to remove the SD card";
 }
 
 # main routine
 # catch exceptions within this block
-local $@; # avoid interference from functions which modify global $@
+local $@; # avoid interference from anything that modifies global $@
 do {
-	# record locations of needed programs
-	find_prog();
+	# initialize program state storage
+	State->init("system", "input", "output", "option");
 
 	# collect and validate command-line arguments
-	GetOptions ( "verbose" => \$verbose );
+	do { GetOptions (State::option(), "verbose"); };
+	if ($@) {
+		# in case of failure, add state info if verbose mode is set
+		State->die($@);
+	}
 	if ($#ARGV != 1) {
 		usage();
 	}
-	my (%system, %input, %output);
-	my $state = State->new( "system" => \%system, "input" => \%input, "output" => \%output );
-	$system{prog} = \%prog;
 
-	# Make sure we're on a Linux system - this program uses Linux-only features
-	($system{sysname}, $system{nodename}, $system{release}, $system{version}, $system{machine}) = POSIX::uname();
-	if ($system{sysname} ne "Linux") {
-		die "This depends on features of Linux. Found $system{sysname} kernel - cannot continue.";
-	}
+	# collect system info: kernel specs and locations of needed programs
+	collect_system_info();
 
 	# set input and output paths
-	$input{path} = $ARGV[0];
-	$output{path} = $ARGV[1];
-	say "requested to flash $input{path} to $output{path}";
+	State::input("path", $ARGV[0]);
+	State::output("path", $ARGV[1]);
+	say "requested to flash ".State::input("path")." to ".State::output("path");
 	say "output device will be erased";
 
-	#
 	# check the input file
-	#
-	if (! -e $input{path}) {
-		$state->die("input $input{path} does not exist");
-	}
-	if (! -f $input{path}) {
-		$state->die("input $input{path} is not a regular file");
-	}
-	do { deduce_file_type(\%input); };
-	if ($@) {
-		# in case of failure, add state info if verbose mode is set
-		$state->die($@);
-	}
+	collect_file_info();
 	
-	#
 	# check the output device
-	#
-	if (! -e $output{path}) {
-		$state->die("output device $output{path} does not exist");
-	}
-	if (! -b $output{path}) {
-		$state->die("output device $output{path} is not a block device");
-	}
+	collect_device_info();
 
-	# check block device parameters
-	do { blkparam(\%output, "MOUNTPOINT", "FSTYPE", "SUBSYSTEMS", "TYPE"); }; # load block device info into %output
-	if ($@) {
-		# in case of failure, add state info if verbose mode is set
-		$state->die($@);
+	# check input file and output device sizes
+	if (State::input("size") > State::output("size")) {
+		State->die("output device not large enough for this image - currently have: "
+			.num_readable(State::output("size")).", minimum size: ".num_readable(State::input("size")));
 	}
-	if ($output{mountpoint} ne "") {
-		$state->die("output device is mounted - this operation would erase it");
-	}
-	if ($output{fstype} eq "swap") {
-		$state->die("output device is a swap device - this operation would erase it");
-	}
-	if ($output{type} eq "part") {
-		$state->die("output device is a partition - Raspberry Pi flash needs the whole SD device");
-	}
-	{
-		# make sure the SD card driver operates this device
-		my $found_mmc = 0;
-		my @subsystems = split /:/, $output{subsystems};
-		foreach my $subsystem (@subsystems) {
-			if ($subsystem eq "mmc_host" or $subsystem eq "mmc") {
-				$found_mmc = 1;
-				last;
-			}
-		}
-		if (!$found_mmc) {
-			$state->die("output device is not operated by SD card driver - this operation would erase it");
-		}
-	}
-
-	# verify that the device is actually an SD card (should be for mmc_host devices)
-	my $sysfs_devtype_path = "/sys/block/".base($output{path})."/device/type";
-	if (! -f $sysfs_devtype_path) {
-		$state->die("cannot find output device type - Linux kernel $system{release} may be too old");
-	}
-	say "output device is a ". slurp($sysfs_devtype_path);
-	if (slurp($sysfs_devtype_path) ne "SD") {
-		$state->die("output device is not an SD card - this operation would erase it");
+	# check if SD card is recommended 8GB - check for 6GB since it isn't a hard limit
+	if (State::has_input("NOOBS") and State::output("size") < 6*1024*1024*1024) {
+		State->die("NOOBS images want 8GB SD card - currently have: ".num_readable(State::output("size")));
 	}
 
 	# test access to root privilege
-	# sudo should be configured to not prompt for a password again for some minutes
+	# sudo should be configured to not prompt for a password again on this session for some minutes
 	say "verify sudo access";
-	do { run( "sudo test", $prog{sudo}, $prog{true}); };
+	do { cmd("sudo test", prog("sudo"), prog("true")); };
 	if ($@) {
-		# in case of failure, add state info if verbose mode is set
-		$state->die("root privileges required to run this script");
-	}
-
-	# find embedded image file name (if not already a .img file)
-	if ($input{type} eq "zip") {
-		my @imgfiles = qx($prog{unzip} -l -qq "$input{path}" "*.img");
-		chomp @imgfiles;
-		if (scalar @imgfiles == 0) {
-			$state->die("input file is a zip archive but does not contain a *.img file");
-		}
-		$imgfiles[0] =~ s/^.*\s//;
-		$input{imgfile} = $imgfiles[0];
-	} elsif ($input{type} eq "gz") {
-		if ($input{path} =~ /^.*\/([^\/]*\.img)\.gz/) {
-			$input{imgfile} = $1;
-		} elsif ($input{info}{description} =~ /was "([^"]*.img)",/) {
-			$input{imgfile} = $1;
-		}
-	} elsif ($input{type} eq "xz") {
-		if ($input{path} =~ /^.*\/([^\/]*\.img)\.xz/) {
-			$input{imgfile} = $1;
-		}
+		# in case of failure, report that root privilege is required
+		State->die("root privileges required to run this script");
 	}
 
 	# flash the device
-	if (exists $input{imgfile}) {
-		# if we know an embedded image file name, use it in the start message
-		say "flashing $input{path} / $input{imgfile} -> $output{path}";
-	} else {
-		# print a start message with source and destination
-		say "flashing $input{path} -> $output{path}";
-	}
-	say "wait for the operation to finish - this may take a while";
-	if ($input{type} eq "img") {
-		do { run("dd flash", "$prog{sudo} $prog{dd} bs=4M if=\"$input{path}\" of=\"$output{path}\" status=progress" ); };
-		if ($@) {
-			# in case of failure, add state info if verbose mode is set
-			$state->die($@);
-		}
-	} elsif ($input{type} eq "zip") {
-		do { run( "unzip/dd flash", "$prog{unzip} -p \"$input{path}\" \"$input{imgfile}\" | $prog{sudo} $prog{dd} bs=4M of=\"$output{path}\" status=progress" ); };
-		if ($@) {
-			# in case of failure, add state info if verbose mode is set
-			$state->die($@);
-		}
-	} elsif ($input{type} eq "gz") {
-		do { run( "gunzip/dd flash", "$prog{gunzip} --stdout \"$input{path}\" | $prog{sudo} $prog{dd} bs=4M of=\"$output{path}\" status=progress" ); };
-		if ($@) {
-			# in case of failure, add state info if verbose mode is set
-			$state->die($@);
-		}
-	} elsif ($input{type} eq "xz") {
-		do { run( "xz/dd flash", "$prog{xz} --decompress --stdout \"$input{path}\" | $prog{sudo} $prog{dd} bs=4M of=\"$output{path}\" status=progress" ); };
-		if ($@) {
-			# in case of failure, add state info if verbose mode is set
-			$state->die($@);
-		}
-	}
-	do { run( "sync", $prog{sync}); };
-	if ($@) {
-		# in case of failure, add state info if verbose mode is set
-		$state->die($@);
-	}
-	say "done - it is safe to remove the SD card";
-
+	flash_device();
 };
 
 # catch any exceptions thrown in main routine
 if (my $exception = $@) {
 	if (ref $exception) {
 		# exception is an object - try common output functions in case they include more details
+		# these are not generated by this program - but if another module surprises us, try to handle it gracefully
 		if ($exception->can('as_string')) {
 			# typical of Exception::Class derivative classes
-			say STDERR "$0 failed: ".$exception->as_string();
-			return 1;
+			State->die("[".(ref $exception)."]: ".$exception->as_string());
 		}
 		if ($exception->can('to_string')) {
 			# typical of Exception::Base derivative classes
-			say STDERR "$0 failed: ".$exception->to_string();
-			return 1;
+			State->die("[".(ref $exception)."]: ".$exception->to_string());
 		}
+		# if exception object was not handled, fall through and print whatever it says as if it's a string
 	}
 
 	# print exception as a plain string
+	# don't run this through State->die() because it probably already came from there
 	say STDERR "$0 failed: $@";
 	return 1;
 }
