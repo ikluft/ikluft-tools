@@ -55,6 +55,10 @@ libmagic/file-libs, File::LibMagic (perl)
 
 ## Piflash script
 
-The piflash script can be downloaded with this command.
+The piflash script can be downloaded with either of these commands.
 
-        curl https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
+        curl -L https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash > piflash
+
+or
+
+        wget https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
