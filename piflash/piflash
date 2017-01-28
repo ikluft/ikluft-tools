@@ -5,12 +5,15 @@
 # This script uses sudo to perform root-privileged functions.
 use strict;
 use warnings;
-use v5.18;	# require 2014 or newer version of Perl
+use 5.018; # require 2014 or newer version of Perl
 use autodie; # report errors instead of silently continuing ("die" actions are used as exceptions - caught & reported)
+use Carp;
 use Getopt::Long; # included with perl
 use POSIX; # included with perl
+use IO::Handle; # rpm: "dnf install perl-IO", deb: included with perl
+use IO::Poll qw(POLLIN POLLHUP); # same as IO::Handle
 use File::Basename; # included with perl
-use File::LibMagic; # deb: "apt-get install libfile-libmagic-perl", rpm: "dnf install perl-File-LibMagic"
+use File::LibMagic; # rpm: "dnf install perl-File-LibMagic", deb: "apt-get install libfile-libmagic-perl"
 
 =head1 NAME
 
@@ -54,6 +57,7 @@ If the output device is a mounted filesystem, it will refuse to erase it.
 
 =item *
 If the output device is not an SD card, it will refuse to erase it.
+Piflash has been tested with USB and PCI based SD card interfaces.
 
 =back
 
@@ -81,7 +85,7 @@ Some programs and libraries must be installed on the system for piflash to work 
 
 On RPM-based Linux systems (Red Hat, Fedora, CentOS) the following command, run as root, will install the dependencies.
 
-	dnf install coreutils util-linux sudo perl file-libs perl-File-LibMagic gzip unzip xz e2fsprogs dosfstools
+	dnf install coreutils util-linux sudo perl file-libs perl-File-LibMagic perl-IO gzip unzip xz e2fsprogs dosfstools
 
 On Deb-based Linux systems (Debian, Ubuntu, Raspbian) the following command, run as root, will install the dependencies.
 
@@ -91,10 +95,10 @@ On source-based or other Linux distributions, make sure the following are instal
 
 =over 1
 
-=item programs
+=item programs:
 blockdev, dd, echo, gunzip, lsblk, mkdir, mkfs.vfat, mount, perl, sfdisk, sudo, sync, true, umount, unzip, xz
 
-=item libraries
+=item libraries:
 libmagic/file-libs, File::LibMagic (perl)
 
 =back
@@ -108,6 +112,18 @@ The piflash script can be downloaded with either of these commands.
 or
 
 	wget https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
+
+=head2 Bug reporting
+
+Report bugs via GitHub at https://github.com/ikluft/ikluft-tools/issues - this location may eventually change
+if piflash becomes popular enough to warrant having its own source code repository.
+
+When reporting a bug, please include the full output using the --verbose option. That will include all of the
+program's state information.
+
+For any SD card reader hardware which piflash fails to recognize (and therefore refuses to write to),
+please describe the hardware as best you can including name, product number, bus (USB, PCI, etc),
+any known controller chips.
 
 =cut
 
@@ -123,12 +139,15 @@ my @known_suffixes = qw(gz zip xz img);
 package State
 {
 	# initialize state as empty
+	## no critic (ProhibitPackageVars)
 	BEGIN { $State::state = undef; }
+	## use critic
 
 	# initialize class' singleton object from parameters
 	# class method
 	sub init
 	{
+		## no critic (ProhibitPackageVars)
 		my $class = shift;
 		(defined $State::state) and return; # don't damage data if called again
 		$State::state = {};
@@ -170,6 +189,7 @@ package State
 				}
 			}
 		}
+		return;
 	}
 
 	# dump data structure recursively, part of verbose state output
@@ -178,28 +198,34 @@ package State
 	sub odump
 	{
 		my ($obj, $level) = @_;
-		my $str = "";
 		if (!defined $obj) {
 			# bail out for undefined value
 			return "";
-		} elsif (!ref $obj) {
+		}
+		if (!ref $obj) {
 			# process plain scalar
-			$str .= ("    " x $level)."[value]".$obj."\n";
-		} elsif (ref $obj eq "SCALAR") {
+			return ("    " x $level)."[value]".$obj."\n";
+		}
+		if (ref $obj eq "SCALAR") {
 			# process scalar reference
-			$str .= ("    " x $level).$$obj."\n";
-		} elsif (ref $obj eq "HASH" or ref $obj eq "State") {
+			return ("    " x $level).($$obj // "undef")."\n";
+		}
+		if (ref $obj eq "HASH" or ref $obj eq "State") {
 			# process hash reference
+			my $str = "";
 			foreach my $key (sort {lc $a cmp lc $b} keys %$obj) {
 				if (ref $obj->{$key}) {
 					$str .= ("    " x $level)."$key:"."\n";
 					$str .= odump($obj->{$key}, $level+1);
 				} else {
-					$str .= ("    " x $level)."$key: ".$obj->{$key}."\n";
+					$str .= ("    " x $level)."$key: ".($obj->{$key} // "undef")."\n";
 				}
 			}
-		} elsif (ref $obj eq "ARRAY") {
+			return $str;
+		}
+		if (ref $obj eq "ARRAY") {
 			# process array reference
+			my $str = "";
 			foreach my $entry (@$obj) {
 				if (ref $entry) {
 					$str .= odump($entry, $level+1);
@@ -207,24 +233,25 @@ package State
 					$str .= ("    " x $level)."$entry\n";
 				}
 			}
-		} elsif (ref $obj eq "CODE") {
-			# process function reference
-			$str .= ("    " x $level)."[function]$obj"."\n";
-		} else {
-			# other references/unknown type
-			my $type = ref $obj;
-			$str .= ("    " x $level)."[$type]$obj"."\n";
+			return $str;
 		}
-		return $str;
+		if (ref $obj eq "CODE") {
+			# process function reference
+			return ("    " x $level)."[function]$obj"."\n";
+		}
+		# other references/unknown type
+		my $type = ref $obj;
+		return ("    " x $level)."[$type]$obj"."\n";
 	}
 
 	# die/exception with verbose state dump
 	# class method
-	sub die
+	sub error
 	{
+		## no critic (ProhibitPackageVars)
 		my $class = shift;
 		my $message = shift;
-		die "error: ".$message.(main::verbose() ? "\nProgram state dump...\n".odump($State::state,0) : "");
+		Carp::croak "error: ".$message.(main::verbose() ? "\nProgram state dump...\n".odump($State::state,0) : "");
 	}
 }
 
@@ -241,6 +268,174 @@ sub usage
 	exit 1;
 }
 
+# fork wrapper function
+# borrowed from Aaron Crane's YAPC::EU 2009 presentation slides online
+sub fork_child {
+    my ($child_process_code) = @_;
+
+	# fork and catch errors
+    my $pid = fork;
+	if (!defined $pid) {
+		State->error("Failed to fork: $!\n");
+	}
+
+	# if in parent process, return child pid
+	if ($pid != 0) {
+		return $pid;
+	}
+
+    # if in child process, run requested code
+    $child_process_code->();
+
+	# if we got here, child code returned - so exit to end the subprocess
+    exit;
+}
+
+# fork/exec wrapper to run child processes and collect output/error results
+# used as lower level call by cmd() and cmd2str()
+# this would be a lot simpler with qx()/backtick/system - but wrapper lets us send input & capture output/error data
+sub fork_exec
+{
+	# input for child process may be provided as reference to array - use it and remove it from parameters
+	my @input;
+	if ( ref $_[0] eq "ARRAY" ) {
+		my $input_ref = shift;
+		@input = @$input_ref;
+	}
+	my $cmdname = shift;
+	my @args = @_;
+
+	# open pipes for child process stdin, stdout, stderr
+	my ($child_in_reader, $child_in_writer, $child_out_reader, $child_out_writer,
+		$child_err_reader, $child_err_writer);
+	pipe $child_in_reader, $child_in_writer
+		or State->error("fork_exec($cmdname): failed to open child process input pipe: $!");
+	pipe $child_out_reader, $child_out_writer
+		or State->error("fork_exec($cmdname): failed to open child process output pipe: $!");
+	pipe $child_err_reader, $child_err_writer
+		or State->error("fork_exec($cmdname): failed to open child process error pipe: $!");
+
+	# fork the child process
+	my $pid = fork_child(sub {
+		# in child process
+
+		# close our copy of parent's end of pipes to avoid deadlock - it must now be only one with them open
+		close $child_in_writer
+			or Carp::croak "fork_exec($cmdname): child failed to close parent process input writer pipe: $!";
+		close $child_out_reader
+			or Carp::croak "fork_exec($cmdname): child failed to close parent process output reader pipe: $!";
+		close $child_err_reader
+			or Carp::croak "fork_exec($cmdname): child failed to close parent process error reader pipe: $!";
+
+		# dup file descriptors into child's standard in=0/out=1/err=2 positions
+		POSIX::dup2(fileno $child_in_reader, 0)
+			or Carp::croak "fork_exec($cmdname): child failed to reopen stdin from pipe: $!\n";
+		POSIX::dup2(fileno $child_out_writer, 1)
+			or Carp::croak "fork_exec($cmdname): child failed to reopen stdout to pipe: $!\n";
+		POSIX::dup2(fileno $child_err_writer, 2)
+			or Carp::croak "fork_exec($cmdname): child failed to reopen stderr to pipe: $!\n";
+
+		# close the file descriptors that were just consumed by dup2
+		close $child_in_reader
+			or Carp::croak "fork_exec($cmdname): child failed to close child process input reader pipe: $!";
+		close $child_out_writer
+			or Carp::croak "fork_exec($cmdname): child failed to close child process output writer pipe: $!";
+		close $child_err_writer
+			or Carp::croak "fork_exec($cmdname): child failed to close child process error writer pipe: $!";
+
+		# execute the command
+		exec @args
+			or Carp::croak "fork_exec($cmdname): failed to execute command - returned $?";
+	});
+
+	# in parent process
+
+	# close our copy of child's end of pipes to avoid deadlock - it must now be only one with them open
+	close $child_in_reader
+		or State->error("fork_exec($cmdname): parent failed to close child process input reader pipe: $!");
+	close $child_out_writer
+		or State->error("fork_exec($cmdname): parent failed to close child process output writer pipe: $!");
+	close $child_err_writer
+		or State->error("fork_exec($cmdname): parent failed to close child process error writer pipe: $!");
+
+	# write to child's input if any content was provided
+	if (@input) {
+		# blocks until input is accepted - it is required that all commands using input take it before output
+		if (syswrite($child_in_writer, join("\n", @input)."\n") == undef) {
+			State->error("fork_exec($cmdname): failed to write child process input: $!");
+		}
+	}
+	close $child_in_writer;
+
+	# use IO::Poll to collect child output and error separately
+	my @fd = ($child_out_reader, $child_err_reader); # file descriptors for out(0) and err(1)
+	my @text = (undef, undef); # received text for out(0) and err(1)
+	my @done = (0, 0); # done flags for out(0) and err(1)
+	my $poll = IO::Poll->new();
+	$poll->mask($child_out_reader => POLLIN);
+	$poll->mask($child_err_reader => POLLIN);
+	while ((!$done[0]) or (!$done[1])) {
+		# wait for input
+		if ($poll->poll() == -1) {
+			State->error("fork_exec($cmdname): poll failed: $!");
+		}
+		for (my $i=0; $i<=1; $i++) {
+			if (!$done[$i]) {
+				my $events = $poll->events($fd[$i]);
+				if ($events && (POLLIN || POLLHUP)) {
+					# read all available input for input or hangup events
+					# we do this for hangup because Linux kernel doesn't report input when a hangup occurs
+					my $buffer;
+					while (sysread($fd[$i], $buffer, 1024) != 0) {
+						if (!defined $text[$i]) {
+							$text[$i] = "";
+						}
+						$text[$i] .= $buffer;
+					}
+				}
+				if ($events && (POLLHUP)) {
+					# hangup event means this fd (out=0, err=1) was closed by the child
+					$done[$i] = 1;
+					$poll->remove($fd[$i]);
+				}
+			}
+		}
+	}
+
+	# reap the child process status
+	waitpid( $pid, 0 );
+
+	# record all command return codes, stdout & stderr in a new top-level store in State
+	# it's overhead but could be useful for problem-reporting, troubleshooting, debugging and testing
+	if (verbose()) {
+		my $log = State::log();
+		if (!exists $log->{cmd}) {
+			$log->{cmd} = [];
+		}
+		push @{$log->{cmd}}, {
+			cmdname => $cmdname,
+			cmdline => [@args],
+			returncode => $? >> 8,
+			(($? & 127) ? (signal => sprintf "signal %d%s", ($? & 127), (($? & 128) ? " with coredump" : "")) : ()),
+			out => $text[0],
+			err => $text[1],
+		};
+	}
+
+	# catch errors
+	if ($? == -1) {
+		State->error("failed to execute $cmdname command: $!");
+	} elsif ($? & 127) {
+		State->error(sprintf "%s command died with signal %d, %s coredump",
+			$cmdname, ($? & 127),  ($? & 128) ? 'with' : 'without');
+	} elsif ($? != 0) {
+		State->error(sprintf "%s command exited with value %d", $cmdname, $? >> 8);
+	}
+
+	# return output/error
+	return @text;
+}
+
 # run a command
 # usage: run( label, command_line)
 #   label: a descriptive name of the action this is performing
@@ -255,21 +450,30 @@ sub cmd
 	}
 	system (@_);
 	if ($? == -1) {
-		State->die("failed to execute $cmdname command: $!");
+		State->error("failed to execute $cmdname command: $!");
 	} elsif ($? & 127) {
-		State->die(sprintf "%s command died with signal %d, %s coredump",
+		State->error(sprintf "%s command died with signal %d, %s coredump",
 			$cmdname, ($? & 127),  ($? & 128) ? 'with' : 'without');
 	} elsif ($? != 0) {
-		State->die(sprintf "%s command exited with value %d", $cmdname, $? >> 8);
+		State->error(sprintf "%s command exited with value %d", $cmdname, $? >> 8);
 	}
 	return 1;
 }
 
 # run a command and return the output as a string
+# This originally used qx() to fork child process and obtain output.  But Perl::Critic discourages use of qx/backtick.
+# And it would be useful to provide input to child process, rather than using a wasteful echo-to-pipe shell command.
+# So the fork_exec_wrapper() was added as a lower-level base for cmd() and cmd2str().
 sub cmd2str
 {
-	my $cmd = join(" ", @_);
-	return qx($cmd);
+	#my $cmd = join(" ", @_);
+	#return qx($cmd);
+	my $cmdname = shift;
+	my ($out, $err) = fork_exec($cmdname, @_);
+	if (defined $err) {
+		Carp::carp("$cmdname had error output:\n".$err);
+	}
+	return wantarray ? split /\n/, $out : $out;
 }
 
 # look up secure program path
@@ -296,7 +500,7 @@ sub prog
 	}
 
 	# if we get here, we didn't find a known secure location for the program
-	State->die("unknown secure location for $progname - install it or set "	
+	State->error("unknown secure location for $progname - install it or set "
 			.(uc $progname."_PROG")." to point to it");
 }
 
@@ -314,6 +518,7 @@ sub slurp
 	my $filename = shift;
 	open my $fh, "<", $filename;
 	my $str = do {
+		## no critic (RequireInitializationForLocalVars)
 		local $/; # avoid interference from functions which modify global $/
 		<$fh>
 	};
@@ -336,14 +541,13 @@ sub collect_system_info
 	($system->{sysname}, $system->{nodename}, $system->{release}, $system->{version},
 		$system->{machine}) = POSIX::uname();
 	if ($system->{sysname} ne "Linux") {
-		die "This depends on features of Linux. Found $system->{sysname} kernel - cannot continue.";
+		State->error("This depends on features of Linux. Found $system->{sysname} kernel - cannot continue.");
 	}
 
 	# hard-code known-secure locations of programs here if you need to override any on your system
 	# $prog{name} = "/path/to/name";
 
 	# loop through needed programs and record locations from environment variable or system directories
-	my %paths_used;
 	$system->{prog} = {};
 
 	# set PATH in environment as a precaution - we don't intend to use it but mkfs does
@@ -355,7 +559,9 @@ sub collect_system_info
 			push @path, $path;
 		}
 	}
+	## no critic (RequireLocalizedPunctuationVars])
 	$ENV{PATH} = join ":", @path;
+	## use critic
 	$system->{PATH} = $ENV{PATH};
 
 	# find filesystems supported by this kernel (for formatting SD card)
@@ -388,10 +594,10 @@ sub collect_file_info
 
 	# verify input file exists
 	if (! -e $input->{path}) {
-		State->die("input ".$input->{path}." does not exist");
+		State->error("input ".$input->{path}." does not exist");
 	}
 	if (! -f $input->{path}) {
-		State->die("input ".$input->{path}." is not a regular file");
+		State->error("input ".$input->{path}." is not a regular file");
 	}
 
 	# use libmagic/file to collect file data
@@ -424,7 +630,7 @@ sub collect_file_info
 		$input->{type} = "img";
 	}
 	if (!exists $input->{type}) {
-		die "collect_file_info(): file type not recognized on $input->{path}";
+		State->error("collect_file_info(): file type not recognized on $input->{path}");
 	}
 
 	# get file size - start with raw file size, update later if it's compressed/archive
@@ -433,7 +639,7 @@ sub collect_file_info
 	# find embedded image in archived/compressed files (either *.img or a NOOBS image)
 	if ($input->{type} eq "zip") {
 		# process zip archives
-		my @zip_content = cmd2str(prog("unzip"), "-l", qq("$input->{path}"));
+		my @zip_content = cmd2str("unzip - list contents", prog("unzip"), "-l", $input->{path});
 		chomp @zip_content;
 		my $found_build_data = 0;
 		my @imgfiles;
@@ -450,8 +656,8 @@ sub collect_file_info
 
 		# detect if the zip archive contains Raspberry Pi NOOBS (New Out Of the Box System)
 		if ($found_build_data) {
-			my @noobs_version = grep {/^NOOBS Version:/} cmd2str(prog("unzip"), "-p", qq("$input->{path}"),
-				"BUILD-DATA");
+			my @noobs_version = grep {/^NOOBS Version:/} cmd2str("unzip - check for NOOBS", prog("unzip"),
+				"-p", $input->{path}, "BUILD-DATA");
 			chomp @noobs_version;
 			if (scalar @noobs_version > 0) {
 				if ($noobs_version[0] =~ /^NOOBS Version: (.*)/) {
@@ -463,14 +669,14 @@ sub collect_file_info
 		# if NOOBS system was not found, look for a *.img file
 		if (!exists $input->{NOOBS}) {
 			if (scalar @imgfiles == 0) {
-				die "input file is a zip archive but does not contain a *.img file or NOOBS system";
+				State->error("input file is a zip archive but does not contain a *.img file or NOOBS system");
 			}
 			$input->{imgfile} = $imgfiles[0][0];
 			$input->{size} = $imgfiles[0][1];
 		}
 	} elsif ($input->{type} eq "gz") {
 		# process gzip compressed files
-		my @gunzip_out = cmd2str(prog("gunzip"), "--list --quiet", qq("$input->{path}"));
+		my @gunzip_out = cmd2str("gunzip - list contents", prog("gunzip"), "--list", "--quiet", $input->{path});
 		chomp @gunzip_out;
 		$gunzip_out[0] =~ /^\s+\d+\s+(\d+)\s+[\d.]+%\s+(.*)/;
 		$input->{size} = $1;
@@ -480,7 +686,7 @@ sub collect_file_info
 		if ($input->{path} =~ /^.*\/([^\/]*\.img)\.xz/) {
 			$input->{imgfile} = $1;
 		}
-		my @xz_out = cmd2str(prog("xz"), "--robot --list", qq("$input->{path}"));
+		my @xz_out = cmd2str("xz - list contents", prog("xz"), "--robot", "--list", $input->{path});
 		chomp @xz_out;
 		foreach my $xz_line (@xz_out) {
 			if ($xz_line =~ /^file\s+\d+\s+\d+\s+\d+\s+(\d+)/) {
@@ -498,27 +704,33 @@ sub collect_device_info
 
 	# check that device exists
 	if (! -e $output->{path}) {
-		State->die("output device ".$output->{path}." does not exist");
+		State->error("output device ".$output->{path}." does not exist");
 	}
 	if (! -b $output->{path}) {
-		State->die("output device ".$output->{path}." is not a block device");
+		State->error("output device ".$output->{path}." is not a block device");
 	}
 
 	# check block device parameters
 
 	# load block device info into %output
-	blkparam("MOUNTPOINT", "FSTYPE", "SIZE", "SUBSYSTEMS", "TYPE");
+	blkparam("MOUNTPOINT", "FSTYPE", "SIZE", "SUBSYSTEMS", "TYPE", "MODEL");
 	if ($output->{mountpoint} ne "") {
-		State->die("output device is mounted - this operation would erase it");
+		State->error("output device is mounted - this operation would erase it");
 	}
 	if ($output->{fstype} eq "swap") {
-		State->die("output device is a swap device - this operation would erase it");
+		State->error("output device is a swap device - this operation would erase it");
 	}
 	if ($output->{type} eq "part") {
-		State->die("output device is a partition - Raspberry Pi flash needs whole SD device");
+		State->error("output device is a partition - Raspberry Pi flash needs whole SD device");
 	}
-	{
-		# make sure the SD card driver operates this device
+	# check for SD/MMC card via USB or PCI bus interfaces
+	my $detected_sdcard = 0; 
+	if ($output->{model} eq "SD/MMC") {
+		# detected SD card via USB adapter
+		$detected_sdcard = 1;
+		verbose() and say "output device is an SD card via USB adapter";
+	} else {
+		# check if the SD card driver operates this device
 		my $found_mmc = 0;
 		my @subsystems = split /:/, $output->{subsystems};
 		foreach my $subsystem (@subsystems) {
@@ -528,19 +740,21 @@ sub collect_device_info
 			}
 		}
 		if (!$found_mmc) {
-			State->die("output device is not operated by SD card driver - this operation would erase it");
+			State->error("output device is not operated by SD card driver - this operation would erase it");
 		}
 	}
 
-	# verify that the device is actually an SD card (should be for mmc_host devices)
-	my $sysfs_devtype_path = "/sys/block/".base($output->{path})."/device/type";
-	if (! -f $sysfs_devtype_path) {
-		State->die("cannot find output device type - Linux kernel ".State::system("release")." may be too old");
-	}
-	my $sysfs_devtype = slurp($sysfs_devtype_path);
-	verbose() and say "output device is a $sysfs_devtype";
-	if ($sysfs_devtype ne "SD") {
-		State->die("output device is not an SD card - this operation would erase it");
+	# verify that the device is actually an SD card (should be for mmc_host devices via PCI device)
+	if (!$detected_sdcard) {
+		my $sysfs_devtype_path = "/sys/block/".base($output->{path})."/device/type";
+		if (! -f $sysfs_devtype_path) {
+			State->error("cannot find output device type - Linux kernel ".State::system("release")." may be too old");
+		}
+		my $sysfs_devtype = slurp($sysfs_devtype_path);
+		verbose() and say "output device is a $sysfs_devtype";
+		if ($sysfs_devtype ne "SD") {
+			State->error("output device is not an SD card - this operation would erase it");
+		}
 	}
 }
 
@@ -558,18 +772,18 @@ sub blkparam
 			say STDERR "blkparam(): skipped collection of parameter $paramname to avoid overwriting existing data";
 			next;
 		}
-		my $value = cmd2str(prog("lsblk"), "--bytes --nodeps --noheadings --output $paramname",
-			qq("$output->{path}"));
+		my $value = cmd2str("lsblk lookup of $paramname", prog("lsblk"), "--bytes", "--nodeps", "--noheadings",
+			"--output", $paramname, $output->{path});
 		if ($? == -1) {
-			State->die("blkparam($paramname): failed to execute lsblk: $!");
+			State->error("blkparam($paramname): failed to execute lsblk: $!");
 		} elsif ($? & 127) {
-			State->die(sprintf "blkparam($paramname): lsblk died with signal %d, %s coredump",
+			State->error(sprintf "blkparam($paramname): lsblk died with signal %d, %s coredump",
 				($? & 127),  ($? & 128) ? 'with' : 'without');
 		} elsif ($? != 0) {
-			State->die(sprintf "blkparam($paramname): lsblk exited with value %d", $? >> 8);
+			State->error(sprintf "blkparam($paramname): lsblk exited with value %d", $? >> 8);
 		}
-		$value =~ s/^\s*//;	# remove leading whitespace
-		$value =~ s/\s*$//;	# remove trailing whitespace
+		$value =~ s/^\s*//; # remove leading whitespace
+		$value =~ s/\s*$//; # remove trailing whitespace
 		$output->{lc $paramname} = $value;
 	}
 }
@@ -652,7 +866,7 @@ sub flash_device
 		# print a start message with source and destination
 		say "flashing ".State::input("path")." -> ".State::output("path");
 	}
-	say "wait for it to finish - this takes a while, some progress without status";
+	say "wait for it to finish - this takes a while, progress not always indicated";
 	if (State::input("type") eq "img") {
 		cmd("dd flash", prog("sudo")." ".prog("dd")." bs=4M if=\"".State::input("path")."\" of=\""
 			.State::output("path")."\" status=progress" );
@@ -663,11 +877,13 @@ sub flash_device
 			State::output("label", $label);
 			my $fstype = State::system("primary_fs");
 			if ($fstype ne "vfat") {
-				State->die("NOOBS requires VFAT filesystem, not in this kernel - do you need to load a module?");
+				State->error("NOOBS requires VFAT filesystem, not in this kernel - do you need to load a module?");
 			}
 			say "formatting $fstype filesystem for Raspberry Pi NOOBS system...";
-			cmd("write partition table", prog("echo"), "type=c", "|", prog("sudo"), prog("sfdisk"), State::output("path"));
-			my @partitions = grep {/part\s*$/} cmd2str(prog("lsblk"), "--list", State::output("path"));
+			cmd("write partition table", prog("echo"), "type=c", "|", prog("sudo"), prog("sfdisk"),
+				State::output("path"));
+			my @partitions = grep {/part\s*$/} cmd2str("lsblk - find partitions", prog("lsblk"), "--list",
+				State::output("path"));
 			$partitions[0] =~ /^([^\s]+)\s/;
 			my $partition = "/dev/".$1;
 			cmd("format sd card", prog("sudo"), prog("mkfs.$fstype"), "-n", $label, $partition);
@@ -696,17 +912,16 @@ sub flash_device
 }
 
 # main routine
-# catch exceptions within this block
-local $@; # avoid interference from anything that modifies global $@
-do {
+sub main
+{
 	# initialize program state storage
-	State->init("system", "input", "output", "option");
+	State->init("system", "input", "output", "option", "log");
 
 	# collect and validate command-line arguments
 	do { GetOptions (State::option(), "verbose"); };
 	if ($@) {
 		# in case of failure, add state info if verbose mode is set
-		State->die($@);
+		State->error($@);
 	}
 	if ($#ARGV != 1) {
 		usage();
@@ -729,12 +944,12 @@ do {
 
 	# check input file and output device sizes
 	if (State::input("size") > State::output("size")) {
-		State->die("output device not large enough for this image - currently have: "
+		State->error("output device not large enough for this image - currently have: "
 			.num_readable(State::output("size")).", minimum size: ".num_readable(State::input("size")));
 	}
 	# check if SD card is recommended 8GB - check for 6GB since it isn't a hard limit
 	if (State::has_input("NOOBS") and State::output("size") < 6*1024*1024*1024) {
-		State->die("NOOBS images want 8GB SD card - currently have: ".num_readable(State::output("size")));
+		State->error("NOOBS images want 8GB SD card - currently have: ".num_readable(State::output("size")));
 	}
 
 	# test access to root privilege
@@ -743,12 +958,16 @@ do {
 	do { cmd("sudo test", prog("sudo"), prog("true")); };
 	if ($@) {
 		# in case of failure, report that root privilege is required
-		State->die("root privileges required to run this script");
+		State->error("root privileges required to run this script");
 	}
 
 	# flash the device
 	flash_device();
-};
+}
+
+# run main routine and catch exceptions
+local $@; # avoid interference from anything that modifies global $@
+do { main(); };
 
 # catch any exceptions thrown in main routine
 if (my $exception = $@) {
@@ -757,17 +976,17 @@ if (my $exception = $@) {
 		# these are not generated by this program - but if another module surprises us, try to handle it gracefully
 		if ($exception->can('as_string')) {
 			# typical of Exception::Class derivative classes
-			State->die("[".(ref $exception)."]: ".$exception->as_string());
+			State->error("[".(ref $exception)."]: ".$exception->as_string());
 		}
 		if ($exception->can('to_string')) {
 			# typical of Exception::Base derivative classes
-			State->die("[".(ref $exception)."]: ".$exception->to_string());
+			State->error("[".(ref $exception)."]: ".$exception->to_string());
 		}
 		# if exception object was not handled, fall through and print whatever it says as if it's a string
 	}
 
 	# print exception as a plain string
-	# don't run this through State->die() because it probably already came from there
+	# don't run this through State->error() because it probably already came from there
 	say STDERR "$0 failed: $@";
 	return 1;
 }

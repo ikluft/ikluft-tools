@@ -22,6 +22,7 @@ The program makes a number of safety checks for you. Since the flashing process 
 - The output device must be a block device.
 - If the output device is a mounted filesystem, it will refuse to erase it.
 - If the output device is not an SD card, it will refuse to erase it.
+Piflash has been tested with USB and PCI based SD card interfaces.
 
 ## Automated Flashing Procedure
 
@@ -40,7 +41,7 @@ Some programs and libraries must be installed on the system for piflash to work 
 
 On RPM-based Linux systems (Red Hat, Fedora, CentOS) the following command, run as root, will install the dependencies.
 
-        dnf install coreutils util-linux sudo perl file-libs perl-File-LibMagic gzip unzip xz e2fsprogs dosfstools
+        dnf install coreutils util-linux sudo perl file-libs perl-File-LibMagic perl-IO gzip unzip xz e2fsprogs dosfstools
 
 On Deb-based Linux systems (Debian, Ubuntu, Raspbian) the following command, run as root, will install the dependencies.
 
@@ -48,9 +49,9 @@ On Deb-based Linux systems (Debian, Ubuntu, Raspbian) the following command, run
 
 On source-based or other Linux distributions, make sure the following are installed:
 
-- programs
+- programs:
 blockdev, dd, echo, gunzip, lsblk, mkdir, mkfs.vfat, mount, perl, sfdisk, sudo, sync, true, umount, unzip, xz
-- libraries
+- libraries:
 libmagic/file-libs, File::LibMagic (perl)
 
 ## Piflash script
@@ -62,3 +63,15 @@ The piflash script can be downloaded with either of these commands.
 or
 
         wget https://github.com/ikluft/ikluft-tools/raw/master/piflash/piflash
+
+## Bug reporting
+
+Report bugs via GitHub at https://github.com/ikluft/ikluft-tools/issues - this location may eventually change
+if piflash becomes popular enough to warrant having its own source code repository.
+
+When reporting a bug, please include the full output using the --verbose option. That will include all of the
+program's state information.
+
+For any SD card reader hardware which piflash fails to recognize (and therefore refuses to write to),
+please describe the hardware as best you can including name, product number, bus (USB, PCI, etc),
+any known controller chips.
