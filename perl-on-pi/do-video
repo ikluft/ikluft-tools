@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+# do-video - random video player script
+# Copyright 2012-2017 by Ian Kluft
+# Open Source license under GNU GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
+
+use strict;
+use warnings;
+use 5.018; # require 2014 or newer version of Perl
+use autodie;
+use English qw(-no_match_vars);
+use File::Find;
+
+# random sort order
+# Note: the default random seed based on current time is acceptable for this use. So we don't bother to srand.
+sub by_random
+{
+        return (int(rand(2)) == 0 ? 1 : -1);
+}
+
+# main routine
+sub main
+{
+	# find video directory in ~/Videos or ~/Movies
+	my $videoDir;
+	HOME_LOOP:
+	foreach my $home ( $ENV{HOME}, "/home/".getpwuid($UID) ) {
+		foreach my $subdir ( "Videos", "Movies" ) {
+			if ( -d "$home/$subdir" ) {
+				$videoDir = "$home/$subdir";
+				last HOME_LOOP;
+			}
+		}
+	}
+	if ( !defined $videoDir ) {
+		die "failed to locate video directory\n";
+	}
+
+	# collect list of all files under the video directory
+	my @videos;
+	find({ wanted => sub {
+			( -f $File::Find::name ) && push @videos, $File::Find::name;
+		}, follow => 1, no_chdir => 1 }, $videoDir);
+
+	# catch interrupts
+	local $SIG{INT} = sub {
+		print STDERR "interrupt\n";
+		system "/usr/bin/xset s on"; # turn screensaver back on
+		system "/bin/stty sane"; # establish sane terminal settings (i.e. visible keystrokes)
+		exit 0;
+	};
+
+	# turn off screensaver
+	system "/usr/bin/xset s off";
+
+	# play videos
+	while ( 1 ) {
+		foreach my $vid ( sort by_random( @videos )) {
+			print "*** playing $vid...\n";
+			system "omxplayer", "--blank", $vid;
+			sleep 1;
+		}
+	}
+	return;
+}
+
+# run main routine and catch exceptions
+local $EVAL_ERROR = undef; # avoid interference from anything that modifies global $EVAL_ERROR (a.k.a. $@)
+do { main(); };
+
+# catch any exceptions thrown in main routine
+if (defined $EVAL_ERROR) {
+        # print exception as a plain string
+        say STDERR "$0 failed: $EVAL_ERROR";
+        exit 1;
+}
+
+exit 0;
