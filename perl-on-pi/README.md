@@ -11,7 +11,9 @@ do-video uses the [omxplayer](http://elinux.org/Omxplayer) program which takes a
 
 ## [gps-read.pl](gps-read.pl) - read data from a GPS
 ![GPS breadboard layout diagram](pi-gps-breadboard.png)  
-Though you could just use GPSD for this, gps-read.pl demonstrates Perl code to directly access the serial port in the Raspberry Pi's GPIO pins to read data from a GPS. This assumes the GPS outputs in standard NMEA format. For the specific example I used an [AdaFruit 746 Ultimate GPS Breakout Board](https://www.adafruit.com/products/746) and [T-Cobbler Plus GPIO interface](https://www.adafruit.com/products/2028). Note that this uses the 40-pin GPIO from the RasPi A+/B+ and later. At the time of this writing that's everything *except the original RasPi 1*, which has an older 22-pin interface and needs the original T-Cobbler (no plus) interface board and 22-pin cable.
+Though you could just use GPSD for this, gps-read.pl demonstrates Perl code to directly access the serial port in the Raspberry Pi's GPIO pins to read data from a GPS. This assumes the GPS outputs in standard NMEA format.
+
+For the specific example I used an [AdaFruit 746 Ultimate GPS Breakout Board](https://www.adafruit.com/products/746) and [AdaFruit 2028 T-Cobbler Plus GPIO interface](https://www.adafruit.com/products/2028), or equivalent. Note that this uses the 40-pin GPIO from the RasPi A+/B+ and later. At the time of this writing that's everything *except the original RasPi 1*, which has an older 22-pin interface and needs the original T-Cobbler (no plus) interface board and 22-pin cable.
 
 ### Installation
 Run the following commands on the Raspberry Pi to install it.
@@ -19,14 +21,21 @@ Run the following commands on the Raspberry Pi to install it.
 	cpan install GPS::Serial Device::SerialPort
 * change to superuser for installation steps which require it
 	sudo -s
-* We need to turn off the serial console. Edit /boot/cmdline.txt to remove any kernel boot parameter that looks like `console=serial0,115200`.
+* We need to turn off the serial console. Edit /boot/cmdline.txt to remove any kernel boot parameter that looks like `console=serial0,115200`. The RasPi will need to be rebooted for this to take effect. But you can wait for that until the rest of the installation instructions are done.
 * We need to disable the login prompt on the serial port. (These are current for Raspbian Jessie in Feb 2017.)
 	* On a RasPi 1/1+/2/Zero run these commands.
+
 		systemctl stop serial-getty@ttyAMA0.service
+
 		systemctl disable serial-getty@ttyAMA0.service
+
 	* On a RasPi 3 run these commands.
+
 		systemctl stop serial-getty@ttyS0.service
+
 		systemctl disable serial-getty@ttyS0.service
+
+* The RasPi 3 uses /dev/ttyS0. If you're using a 1/1+/2/Zero, edit your copy of gps-read.pl to use /dev/ttyAMA0.
 
 ## [serial-read.pl](serial-read.pl) - read data from serial port
 This is a simpler and lower-level example which reads raw data from the serial port so you can see the raw NMEA strings from the GPS.
