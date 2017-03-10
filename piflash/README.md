@@ -6,6 +6,8 @@ piflash - Raspberry Pi SD-flashing script with safety checks to avoid erasing th
 
     piflash [--verbose] input-file output-device
 
+    piflash [--verbose] --SDsearch
+
 # DESCRIPTION
 
 This script flashes an SD card for a Raspberry Pi. It includes safety checks so that it can only erase and write to an SD card, not another device on the system. The safety checks are probably of most use to beginners. For more advanced users (like the author) it also has the convenience of flashing directly from the file formats downloadable from raspberrypi.org without extracting a .img file from a zip/gz/xz file.
@@ -13,6 +15,7 @@ This script flashes an SD card for a Raspberry Pi. It includes safety checks so 
 - The optional parameter --verbose makes much more verbose status and error messages.  Use this when troubleshooting any problem or preparing program output to ask for help or report a bug.
 - input-file is the path of the binary image file used as input for flashing the SD card. If it's a .img file then it will be flashed directly. If it's a gzip (.gz), xz (.xz) or zip (.zip) file then the .img file will be extracted from it to flash the SD card. It is not necessary to unpack the file if it's in one of these formats. This covers most of the images downloadable from the Raspberry Pi foundation's web site.
 - output-file is the path to the block device where the SSD card is located. The device should not be mounted - if it ismounted the script will detect it and exit with an error. This operation will erase the SD card and write the new image from the input-file to it. (So make sure it's an SD card you're willing to have erased.)
+- The --SDsearch parameter tells piflash to print a list of device names for SD cards available on the system and then exit. Do not specify an input file or output device when using this option - it will exit before they would be used.
 
 ## Safety Checks
 

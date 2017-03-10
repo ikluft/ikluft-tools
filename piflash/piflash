@@ -23,6 +23,8 @@ piflash - Raspberry Pi SD-flashing script with safety checks to avoid erasing th
 
  piflash [--verbose] input-file output-device
 
+ piflash [--verbose] --SDsearch
+
 =head1 DESCRIPTION
 
 This script flashes an SD card for a Raspberry Pi. It includes safety checks so that it can only erase and write to an SD card, not another device on the system. The safety checks are probably of most use to beginners. For more advanced users (like the author) it also has the convenience of flashing directly from the file formats downloadable from raspberrypi.org without extracting a .img file from a zip/gz/xz file.
@@ -37,6 +39,9 @@ input-file is the path of the binary image file used as input for flashing the S
 
 =item *
 output-file is the path to the block device where the SSD card is located. The device should not be mounted - if it ismounted the script will detect it and exit with an error. This operation will erase the SD card and write the new image from the input-file to it. (So make sure it's an SD card you're willing to have erased.)
+
+=item *
+The --SDsearch parameter tells piflash to print a list of device names for SD cards available on the system and then exit. Do not specify an input file or output device when using this option - it will exit before they would be used.
 
 =back
 
@@ -133,6 +138,9 @@ any known controller chips.
 
 # recognized file suffixes which SD cards can be flashed from
 my @known_suffixes = qw(gz zip xz img);
+
+# block device parameters to collect via lsblk
+my @blkdev_params = ( "MOUNTPOINT", "FSTYPE", "SIZE", "SUBSYSTEMS", "TYPE", "MODEL", "RO", "RM", "HOTPLUG", "PHY-SEC");
 
 # State class to hold program state, and print it all out in case of errors
 # this is a low-level package - it stores state data but at this level has no knowledge of what is being stored in it
@@ -265,6 +273,7 @@ sub verbose
 sub usage
 {
 	say STDERR "usage: ".base($0)." [--verbose] input-file output-device";
+	say STDERR "       ".base($0)." [--verbose] --SDsearch";
 	exit 1;
 }
 
@@ -713,7 +722,7 @@ sub collect_device_info
 	# check block device parameters
 
 	# load block device info into %output
-	blkparam("MOUNTPOINT", "FSTYPE", "SIZE", "SUBSYSTEMS", "TYPE", "MODEL");
+	blkparam(@blkdev_params);
 	if ($output->{mountpoint} ne "") {
 		State->error("output device is mounted - this operation would erase it");
 	}
@@ -723,38 +732,10 @@ sub collect_device_info
 	if ($output->{type} eq "part") {
 		State->error("output device is a partition - Raspberry Pi flash needs whole SD device");
 	}
-	# check for SD/MMC card via USB or PCI bus interfaces
-	my $detected_sdcard = 0; 
-	if ($output->{model} eq "SD/MMC") {
-		# detected SD card via USB adapter
-		$detected_sdcard = 1;
-		verbose() and say "output device is an SD card via USB adapter";
-	} else {
-		# check if the SD card driver operates this device
-		my $found_mmc = 0;
-		my @subsystems = split /:/, $output->{subsystems};
-		foreach my $subsystem (@subsystems) {
-			if ($subsystem eq "mmc_host" or $subsystem eq "mmc") {
-				$found_mmc = 1;
-				last;
-			}
-		}
-		if (!$found_mmc) {
-			State->error("output device is not operated by SD card driver - this operation would erase it");
-		}
-	}
 
-	# verify that the device is actually an SD card (should be for mmc_host devices via PCI device)
-	if (!$detected_sdcard) {
-		my $sysfs_devtype_path = "/sys/block/".base($output->{path})."/device/type";
-		if (! -f $sysfs_devtype_path) {
-			State->error("cannot find output device type - Linux kernel ".State::system("release")." may be too old");
-		}
-		my $sysfs_devtype = slurp($sysfs_devtype_path);
-		verbose() and say "output device is a $sysfs_devtype";
-		if ($sysfs_devtype ne "SD") {
-			State->error("output device is not an SD card - this operation would erase it");
-		}
+	# check for SD/MMC card via USB or PCI bus interfaces
+	if (!is_sd()) {
+		State->error("output device is not an SD card - this operation would erase it");
 	}
 }
 
@@ -764,16 +745,30 @@ sub collect_device_info
 #   param-name: list of parameter names to read into output hash
 sub blkparam
 {
-	my $output = State::output();
+	# use State::output device unless another hash is provided
+	my $blkdev;
+	if (ref($_[0]) eq "HASH") {
+		$blkdev = shift @_;
+	} else {
+		$blkdev = State::output();
+	}
 
+	# get the device's path
+	# throw an exception if the device's hash data doesn't have it
+	if (!exists $blkdev->{path}) {
+		State::error("blkparam: device hash does not contain path to device");
+	}
+	my $path = $blkdev->{path};
+
+	# loop through the requested parameters and get each one for the device with lsblk
 	foreach my $paramname (@_) {
-		if (exists $output->{lc $paramname}) {
+		if (exists $blkdev->{lc $paramname}) {
 			# skip names of existing data to avoid overwriting
 			say STDERR "blkparam(): skipped collection of parameter $paramname to avoid overwriting existing data";
 			next;
 		}
 		my $value = cmd2str("lsblk lookup of $paramname", prog("lsblk"), "--bytes", "--nodeps", "--noheadings",
-			"--output", $paramname, $output->{path});
+			"--output", $paramname, $path);
 		if ($? == -1) {
 			State->error("blkparam($paramname): failed to execute lsblk: $!");
 		} elsif ($? & 127) {
@@ -784,7 +779,7 @@ sub blkparam
 		}
 		$value =~ s/^\s*//; # remove leading whitespace
 		$value =~ s/\s*$//; # remove trailing whitespace
-		$output->{lc $paramname} = $value;
+		$blkdev->{lc $paramname} = $value;
 	}
 }
 
@@ -855,6 +850,63 @@ sub random_label
 	return $label;
 }
 
+# check if a device is an SD card
+sub is_sd
+{
+	# use State::output device unless another hash is provided
+	my $blkdev;
+	if (ref($_[0]) eq "HASH") {
+		$blkdev = shift @_;
+	} else {
+		$blkdev = State::output();
+	}
+
+	# check for SD/MMC card via USB or PCI bus interfaces
+	if ($blkdev->{model} eq "SD/MMC") {
+		# detected SD card via USB adapter
+		verbose() and say "output device ".$blkdev->{path}." is an SD card via USB adapter";
+		return 1;
+	}
+
+	# check if the SD card driver operates this device
+	my $found_mmc = 0;
+	my $found_usb = 0;
+	my @subsystems = split /:/, $blkdev->{subsystems};
+	foreach my $subsystem (@subsystems) {
+		if ($subsystem eq "mmc_host" or $subsystem eq "mmc") {
+			$found_mmc = 1;
+		}
+		if ($subsystem eq "usb") {
+			$found_usb = 1;
+		}
+	}
+	if ($found_mmc) {
+		# verify that the MMC device is actually an SD card
+		my $sysfs_devtype_path = "/sys/block/".base($blkdev->{path})."/device/type";
+		if (! -f $sysfs_devtype_path) {
+			State->error("cannot find output device ".$blkdev->{path}." type - Linux kernel ".State::system("release")." may be too old");
+		}
+		my $sysfs_devtype = slurp($sysfs_devtype_path);
+		verbose() and say "output device ".$blkdev->{path}." is a $sysfs_devtype";
+		if ($sysfs_devtype eq "SD") {
+			return 1;
+		}
+	}
+
+	# allow USB writable/hotplug/removable drives with physical sector size 512
+	# this is imprecise because some other non-SD flash devices will be accepted as SD
+	# it will still avoid allowing hard drives to be erased
+	if ($found_usb) {
+		if($blkdev->{ro}==0 and $blkdev->{rm}==1 and $blkdev->{hotplug}==1 and $blkdev->{"phy-sec"}==512) {
+			verbose() and say "output device ".$blkdev->{path}." close enough: USB removable writable hotplug ps=512";
+			return 1;
+		}
+	}
+	
+	verbose() and say "output device ".$blkdev->{path}." rejected as SD card";
+	return 0;
+}
+
 # flash the output device from the input file
 sub flash_device
 {
@@ -907,8 +959,38 @@ sub flash_device
 		cmd("xz/dd flash", prog("xz")." --decompress --stdout \"".State::input("path")."\" | "
 			.prog("sudo")." ".prog("dd")." bs=4M of=\"".State::output("path")."\" status=progress");
 	}
+	say "wait for it to finish - synchronizing buffers";
 	cmd("sync", prog("sync"));
 	say "done - it is safe to remove the SD card";
+}
+
+# search for and print names of SD card devices
+sub sd_search
+{
+	# add block devices to system info
+	my $system = State::system();
+	$system->{blkdev} = {};
+
+	# loop through available devices - collect info and print list of available SD cards
+	my @blkdev = cmd2str("lsblk - find block devices", prog("lsblk"), "--nodeps", "--noheadings", "--list",
+		"--output", "NAME");
+	my @sdcard;
+	foreach my $blkdevname (@blkdev) {
+		$system->{blkdev}{$blkdevname} = {};
+		my $blkdev = $system->{blkdev}{$blkdevname};
+		$blkdev->{path} = "/dev/$blkdevname";
+		blkparam($blkdev, @blkdev_params);
+		if (is_sd($blkdev)) {
+			push @sdcard, $blkdev->{path};
+		}
+	}
+
+	# print results of SD search
+	if (scalar @sdcard == 0) {
+		say "no SD cards found on system";
+	} else {
+		say "SD cards found: ".join(" ", @sdcard);
+	}
 }
 
 # main routine
@@ -918,23 +1000,30 @@ sub main
 	State->init("system", "input", "output", "option", "log");
 
 	# collect and validate command-line arguments
-	do { GetOptions (State::option(), "verbose"); };
+	do { GetOptions (State::option(), "verbose", "sdsearch"); };
 	if ($@) {
 		# in case of failure, add state info if verbose mode is set
 		State->error($@);
 	}
-	if ($#ARGV != 1) {
+	if (($#ARGV != 1) and (!State::has_option("sdsearch"))) {
 		usage();
 	}
 
 	# collect system info: kernel specs and locations of needed programs
 	collect_system_info();
 
+	# if --SDsearch option was selected, search for SD cards and exit
+	if (State::has_option("sdsearch")) {
+		# SDsearch mode: print list of SD card devices and exit
+		sd_search();
+		return;
+	}
+
 	# set input and output paths
 	State::input("path", $ARGV[0]);
 	State::output("path", $ARGV[1]);
 	say "requested to flash ".State::input("path")." to ".State::output("path");
-	say "output device will be erased";
+	say "output device ".State::output("path")." will be erased";
 
 	# check the input file
 	collect_file_info();
@@ -989,6 +1078,10 @@ if (my $exception = $@) {
 	# don't run this through State->error() because it probably already came from there
 	say STDERR "$0 failed: $@";
 	return 1;
+} else {
+	if (verbose()) {
+		say "Program state dump...\n".State::odump($State::state,0);
+	}
 }
 
 exit 0;
