@@ -8,3 +8,5 @@ Each directory in this repository is for its own separate script or tool that I'
 [*perl-on-pi*](perl-on-pi/) - Perl scripts that run on a Raspberry Pi
 
 [*piflash*](piflash/) - Flash an SD card for a Raspberry Pi with safety checks
+
+[*scripts*](scripts/) - miscellaneous helpful scripts
