@@ -47,7 +47,7 @@ The --SDsearch parameter tells piflash to print a list of device names for SD ca
 
 =head2 Safety Checks
 
-The program makes a number of safety checks for you. Since the flashing process usually needs root permissions, these are considered prudent precautions.
+The program makes a number of safety checks for you. Since the SD card flashing process may need root permissions, these are considered prudent precautions.
 
 =over 1
 
@@ -124,7 +124,9 @@ Report bugs via GitHub at https://github.com/ikluft/ikluft-tools/issues - this l
 if piflash becomes popular enough to warrant having its own source code repository.
 
 When reporting a bug, please include the full output using the --verbose option. That will include all of the
-program's state information.
+program's state information, which will help understand the bigger picture what was happening on your system.
+Feel free to remove information you don't want to post in a publicly-visible bug report - though it's helpful
+to add "[redacted]" where you removed something so it's clear what happened.
 
 For any SD card reader hardware which piflash fails to recognize (and therefore refuses to write to),
 please describe the hardware as best you can including name, product number, bus (USB, PCI, etc),
