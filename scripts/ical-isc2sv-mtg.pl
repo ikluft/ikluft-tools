@@ -86,7 +86,7 @@ $ical->add_entry($event);
 
 # print the ICal object as text or a QR code
 if (exists $options{qrcode}) {
-	my @cmd = (qw(/usr/bin/qrencode --type=PNG --size=5 --margin=10 --level=M), "--output=".$options{qrcode});
+	my @cmd = (qw(/usr/bin/qrencode --type=PNG --size=3 --margin=8 --level=M), "--output=".$options{qrcode});
 	my $in = $ical->as_string;
 	IPC::Run::run(\@cmd, '<', \$in)
 		or die "error in qrencode";
