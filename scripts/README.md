@@ -10,3 +10,8 @@ shell aliases "GIMP" and "gimp" which refer to that shell function. So you
 can just run it as "gimp" with any usual command line arguments passed along
 to it. And similar functions/aliases will be made for all Flatpak apps
 installed on the system.
+
+*ical-isc2sv-mtg.pl* generates a QR code with an ICal event. I made this for
+the monthly ISC² Silicon Valley Chapter meetings. But by filling in the
+command-line arguments, it will generate QR codes for a variety of events.
+
