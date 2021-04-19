@@ -1,4 +1,4 @@
-This directory contains miscellaneous helpful scripts.
+This directory contains miscellaneous helpful scripts I've written.
 
 *flatpak-aliases.pl* is a script for Linux desktop and laptop systems
 (equipped with a graphical user interface) which when executed from the
@@ -12,6 +12,12 @@ to it. And similar functions/aliases will be made for all Flatpak apps
 installed on the system.
 
 *ical-isc2sv-mtg.pl* generates a QR code with an ICal event. I made this for
-the monthly ISC² Silicon Valley Chapter meetings. But by filling in the
-command-line arguments, it will generate QR codes for a variety of events.
+monthly ISC² Silicon Valley Chapter meetings. But by filling in the
+command-line arguments, it can generate QR codes for a variety of events.
 
+*isc2-zoomcsv2cpe.pl* processes a Zoom webinar attendee report (in Comma
+Separated Values CSV format) into CSV data with members' earned Continuing
+Professional Education CPE points for the amount of time Zoom says they
+attended the meeting. I made this for monthly ISC² Silicon Valley Chapter
+meetings. This could be useful to other ISC² chapters, but not likely for
+any other purposes.
