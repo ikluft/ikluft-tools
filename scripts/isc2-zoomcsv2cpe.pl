@@ -16,7 +16,7 @@ use Getopt::Long;
 use File::Slurp;
 use Date::Calc;
 use File::BOM qw(:subs);
-use Text::CSV qw(csv);
+use Text::CSV_XS qw(csv);
 use YAML::XS;
 
 use Data::Dumper;
@@ -25,6 +25,7 @@ use Data::Dumper;
 my %config = (
 	max_cpe => 2,	# default 2 CPEs
 	start_grace_period => 10, # 10 minute connection grace period at schedule start to qualify for max CPEs
+	output => "/dev/stdout",
 );
 
 # globals
@@ -95,11 +96,11 @@ sub combineTimeline
 {
 	my $timeline = shift;
 	my $index = 0;
-	foreach my $rec (@$timeline) {
-		say STDERR "debug: combineTimeline: ".join(" ", map { $_."=".$rec->{$_} } sort keys %$rec);
-	}
+	#foreach my $rec (@$timeline) {
+	#	say STDERR "debug: combineTimeline: ".join(" ", map { $_."=".$rec->{$_} } sort keys %$rec);
+	#}
 	while ($index < scalar @$timeline-1) {
-		say STDERR "debug: combineTimeline: index=$index size=".(scalar @$timeline);
+		#say STDERR "debug: combineTimeline: index=$index size=".(scalar @$timeline);
 		my $cur_end = Date::Calc::Date_to_Time(parseDate($timeline->[$index]{'leave time'}));
 		my $next_start = Date::Calc::Date_to_Time(parseDate($timeline->[$index+1]{'join time'}));
 		if ($cur_end <= $next_start and $next_start - $cur_end < 60) {
@@ -188,7 +189,7 @@ sub tableFetch
 # read command line arguments
 my %cmd_arg;
 GetOptions( \%cmd_arg, "max_cpe|cpe:i", "start:s", "end:s", "bus_end|biz:s", "start_grade_period|grace:i",
-	"config_file|config:s")
+	"title|meeting_title:s", "config_file|config:s", "output:s")
 	or croak "command line argument processing failed";
 
 # read YAML configuration
@@ -199,7 +200,7 @@ if (exists $cmd_arg{config_file} and defined $cmd_arg{config_file}) {
 		croak "file ".$cmd_arg{config_file}." does not exist";
 	}
 	my $data = YAML::XS::LoadFile($cmd_arg{config_file});
-	say "debug: YAML data -> ".Dumper($data);
+	#say "debug: YAML data -> ".Dumper($data);
 
 	if (ref $data eq "HASH") {
 		# copy base configuration from YAML to config
@@ -274,9 +275,9 @@ while (my $line = shift @lines) {
 foreach my $table (sort keys %csv_tables) {
 	$tables{$table} = {};
 	$tables{$table}{data} = [];
-	my $csv = Text::CSV->new({binary => 1, blank_is_undef => 1, empty_is_undef => 1});
+	my $csv = Text::CSV_XS->new({binary => 1, blank_is_undef => 1, empty_is_undef => 1});
 	if (not defined $csv) {
-		croak "Text::CSV initialization failed: ".Text::CSV->error_diag ();
+		croak "Text::CSV_XS initialization failed: ".Text::CSV_XS->error_diag ();
 	}
 	$tables{$table}{count} = -1; # start count from -1 so the header won't be included
 	foreach my $csv_line (@{$csv_tables{$table}}) {
@@ -396,8 +397,18 @@ foreach my $table ('host details', 'attendee details', 'panelist details') {
 }
 
 #
-# 4th pass: compute attendee CPEs
+# compute attendee CPEs and generate CSV (spreadsheet) output CPE data for ISC²
 #
+my @isc2_output;
+my $csv = Text::CSV_XS->new ({ binary => 1, auto_diag => 1 });
+$csv->column_names("(ISC)² Member #", "Member First Name", "Member Last Name", "Title of Meeting", "# CPEs",
+	"Date of Activity", "CPE qualifying minutes");
+
+# open CSV output filehandle
+open my $out_fh, ">", $config{output}
+	or croak "failed to open ".$config{output}." for writing: $!";
+
+# loop through attendee records: compute CPEs and output CSV CPE data for ISC²
 foreach my $akey (keys %attendee) {
 	if (not exists $attendee{$akey}{cpe}) {
 		my $cpe = computeCPE($attendee{$akey});
@@ -406,7 +417,17 @@ foreach my $akey (keys %attendee) {
 			$attendee{$akey}{cpe} = $cpe;
 		}
 	}
+
+	# if ISC² member certificate number is available, generate CSV for ISC²
+	if (exists $attendee{$akey}{isc2}) {
+		my $record = $attendee{$akey};
+		$csv->say ($out_fh,
+			[$record->{isc2}, $record->{'first name'}, $record->{'last name'},
+			$config{title}, $record->{cpe},
+			sprintf("%02d/%02d/%04d", $timestamp{start}[1], $timestamp{start}[2], $timestamp{start}[0]),
+			$record->{cpe_minutes}]);
+	}
 }
-say "debug: attendee data -> ".Dumper(\%attendee);
-
-
+close $out_fh
+	or croak "failed to close ".$config{output}.": $!";
+#say "debug: attendee data -> ".Dumper(\%attendee);
