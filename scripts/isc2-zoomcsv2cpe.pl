@@ -340,9 +340,9 @@ if (exists $config{bus_end} and defined $config{bus_end}) {
 	# end of business detaults to end of meeting, highly recommended to use --bix parameter to set end of business time
 	$timestamp{bus_end} = $timestamp{end};
 }
-foreach my $rec (keys %timestamp) {
-	say STDERR "debug: timestamp $rec: ".join("-", @{$timestamp{$rec}});
-}
+#foreach my $rec (keys %timestamp) {
+#	say STDERR "debug: timestamp $rec: ".join("-", @{$timestamp{$rec}});
+#}
 
 # assemble per-user attendance data
 foreach my $table ('host details', 'attendee details', 'panelist details') {
@@ -400,16 +400,17 @@ foreach my $table ('host details', 'attendee details', 'panelist details') {
 # compute attendee CPEs and generate CSV (spreadsheet) output CPE data for ISC²
 #
 my @isc2_output;
-my $csv = Text::CSV_XS->new ({ binary => 1, auto_diag => 1 });
-$csv->column_names("(ISC)² Member #", "Member First Name", "Member Last Name", "Title of Meeting", "# CPEs",
-	"Date of Activity", "CPE qualifying minutes");
 
 # open CSV output filehandle
 open my $out_fh, ">", $config{output}
 	or croak "failed to open ".$config{output}." for writing: $!";
+my $csv = Text::CSV_XS->new ({ binary => 1, auto_diag => 1 });
+$csv->say($out_fh,
+	["(ISC)² Member #", "Member First Name", "Member Last Name", "Title of Meeting", "# CPEs",
+	"Date of Activity", "CPE qualifying minutes"]);
 
 # loop through attendee records: compute CPEs and output CSV CPE data for ISC²
-foreach my $akey (keys %attendee) {
+foreach my $akey (sort {$attendee{$a}{'last name'} cmp $attendee{$b}{'last name'}} keys %attendee) {
 	if (not exists $attendee{$akey}{cpe}) {
 		my $cpe = computeCPE($attendee{$akey});
 		next if not defined $cpe;
