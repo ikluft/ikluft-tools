@@ -16,7 +16,9 @@
 # Current source code for this script can be found at
 # https://github.com/ikluft/ikluft-tools/blob/master/scripts/bloat-remover-onntab.sh
 #
-# Before use, modify this to fit your needs. No guarantees! Review thoroughly because it uninstalls apps!
+# Before use, modify this to fit your needs. zap_list contains keywords which will uninstall apps which contain them.
+# WARNING: No guarantees! Review this thoroughly because it uninstalls apps!  You can easily disable your device if
+# you uninstall system apps.  Don't uninstall anything you don't understand. This runs without prompting the user.
 zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram"
 
 # function to exit with an error message
@@ -43,9 +45,7 @@ $adb start-server \
 # initialize list of apps uninstalled
 zapped=""
 
-# uninstall bloatware apps - review this list to make sure it fits your needs
-# Warning: You can easily disable your device by uninstalling system apps.
-# Don't uninstall anything you don't understand.
+# uninstall bloatware apps as defined in $zap_list defined above
 for delapp in $zap_list
 do
 	apps=$($adb shell pm list packages $delapp | sed 's/^package://')
