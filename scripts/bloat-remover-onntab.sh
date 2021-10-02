@@ -14,9 +14,9 @@ zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapp
 # function to exit with an error message
 die()
 {
-        # print an error and exit
-        echo $@ >&2
-        exit 1
+	# print an error and exit
+	echo $@ >&2
+	exit 1
 }
 
 # print script action
