@@ -19,7 +19,7 @@
 # Before use, modify this to fit your needs. zap_list contains keywords which will uninstall apps which contain them.
 # WARNING: No guarantees! Review this thoroughly because it uninstalls apps!  You can easily disable your device if
 # you uninstall system apps.  Don't uninstall anything you don't understand.
-zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram glxy"
+zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram"
 
 # function to exit with an error message
 die()
