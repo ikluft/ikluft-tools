@@ -1,6 +1,5 @@
 #!/bin/sh
 # bloatware app remover for Onn Android tablets (based on apps I found on a 2020-model 10.1" tablet)
-# posted by Ian Kluft
 #
 # Copyright 2021 by Ian Kluft
 # released as Open Source Software under the GNU General Public License Version 3.
