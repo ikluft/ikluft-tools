@@ -9,6 +9,7 @@
 # https://github.com/ikluft/ikluft-tools/blob/master/scripts/bloat-remover-onntab.sh
 #
 # Before use, modify this to fit your needs. No guarantees! Review thoroughly because it uninstalls apps!
+zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram"
 
 # function to exit with an error message
 die()
@@ -37,7 +38,7 @@ zapped=""
 # uninstall bloatware apps - review this list to make sure it fits your needs
 # Warning: You can easily disable your device by uninstalling system apps.
 # Don't uninstall anything you don't understand.
-for delapp in com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram
+for delapp in $zap_list
 do
 	apps=$($adb shell pm list packages $delapp | sed 's/^package://')
 	for app in $apps
