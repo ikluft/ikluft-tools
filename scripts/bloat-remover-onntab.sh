@@ -18,8 +18,8 @@
 #
 # Before use, modify this to fit your needs. zap_list contains keywords which will uninstall apps which contain them.
 # WARNING: No guarantees! Review this thoroughly because it uninstalls apps!  You can easily disable your device if
-# you uninstall system apps.  Don't uninstall anything you don't understand. This runs without prompting the user.
-zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram"
+# you uninstall system apps.  Don't uninstall anything you don't understand.
+zap_list="com.example walmart sams vudu kids mediahome.launcher com.hcn.wm.wmapps facebook instagram glxy"
 
 # function to exit with an error message
 die()
@@ -42,24 +42,54 @@ $adb start-server \
 [ $($adb devices | fgrep -v 'List of devices' | grep -v '^$' | wc -l) -eq 0 ] \
 	&& die "adb does not detect any connected Android devices"
 
-# initialize list of apps uninstalled
-zapped=""
+# initialize list of apps found and uninstalled
+zap_target=""
+zap_ok=""
+zap_fail=""
 
-# uninstall bloatware apps as defined in $zap_list defined above
+# find bloatware apps as defined in $zap_list above
 for delapp in $zap_list
 do
 	apps=$($adb shell pm list packages $delapp | sed 's/^package://')
 	for app in $apps
 	do
-		zapped+=" $app"
-		$adb shell pm uninstall --user 0 $app
+		zap_target+=" $app"
 	done
 done
 
-# report results
-if [ -z "$zapped" ]
+# prompt user to uninstall
+if [ -z "$zap_target" ]
 then
-	echo "no bloatware apps found - no action taken"
-else
-	echo "removed bloatware apps:$zapped"
+	echo "no bloatware apps found - no action to take"
+	exit 0
+fi
+echo "bloatware apps found:$zap_target"
+echo "confirm uninstall (y/n)?"
+read confirm
+if [ "$confirm" != "y" -a "$confirm" != "Y" -a "$confirm" != "yes" -a "$confirm" != "YES" -a "$confirm" != "Yes" ]
+then
+	echo "uninstall aborted"
+	exit 0
+fi
+
+# uninstall bloatware apps
+for zap in $zap_target
+do
+	echo "uninstalling $zap"
+	if $adb shell pm uninstall --user 0 "$zap"
+	then
+		zap_ok+=" $zap"
+	else
+		zap_fail+=" $zap"
+	fi
+done
+
+# report results
+if [ "$zap_ok" ]
+then
+	echo "removed bloatware apps:$zap_ok"
+fi
+if [ "$zap_fail" ]
+then
+	echo "failed to remove:$zap_fail"
 fi
