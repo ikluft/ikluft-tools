@@ -42,6 +42,13 @@ $adb start-server \
 [ $($adb devices | fgrep -v 'List of devices' | grep -v '^$' | wc -l) -eq 0 ] \
 	&& die "adb does not detect any connected Android devices"
 
+# verify ADB target is an Onn tablet - otherwise zap_list is a mismatch for the device
+brand=$($adb shell getprop ro.product.brand)
+if [ "$brand" != "onn" ]
+then
+	die "This script is initially for Onn tablets - submit a patch or contact the author to collaborate on expansion"
+fi
+
 # initialize list of apps found and uninstalled
 zap_target=""
 zap_ok=""
