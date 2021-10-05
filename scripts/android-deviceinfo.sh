@@ -45,8 +45,9 @@ fi
 echo "device found: brand=$brand model=$model"
 
 # collect various system data into separate files
-devdir="deviceinfo-$brand-$model"
-mkdir $devdir
+devdir="${XDG_DATA_HOME:-${HOME}/.local/share}/deviceinfo/$brand-$model"
+mkdir -p $devdir || die "failed to create device info directory at $devdir"
+echo "saving data files in $devdir"
 echo collecting uname data
 $adb shell uname -a > "$devdir/$brand-$model-uname" || die "uname failed"
 echo collecting cpuinfo data
