@@ -19,7 +19,7 @@ my %sysenv;
 my %sources = (
     "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
 );
-my @module_deps = (qw(Module::ScanDeps HTTP::Tiny));
+my @module_deps = qw(Module::ScanDeps HTTP::Tiny);
 my %module_cpanonly = (
     alpine => {
         #"Module::ScanDeps" => 1,
@@ -345,6 +345,7 @@ sub collect_sysenv
 sub run_cmd
 {
     my @cmd = @_;
+    $debug and say STDERR "debug(run_cmd): ".join(" ", @cmd);
     system @cmd;
     if ($? == -1) {
         say STDERR "failed to execute '".(join " ", @cmd)."': $!";
@@ -411,10 +412,9 @@ sub pkg_install_rpm
     if (exists $args_ref->{pkg}) {
         if (ref $args_ref->{pkg} eq "ARRAY") {
             push @packages, @{$args_ref->{pkg}};
+        } else {
+            push @packages, $args_ref->{pkg};
         }
-    } else {
-        push @packages, $args_ref->{pkg};
-
     }
 
     # install the packages
@@ -458,11 +458,10 @@ sub pkg_install_apk
     if (exists $args_ref->{pkg}) {
         if (ref $args_ref->{pkg} eq "ARRAY") {
             push @packages, @{$args_ref->{pkg}};
-        }
-    } else {
-        push @packages, $args_ref->{pkg};
-
+        } else {
+            push @packages, $args_ref->{pkg};
     }
+        }
 
     # install the packages
     my $pkgcmd = $sysenv{apk};
@@ -505,10 +504,9 @@ sub pkg_install_deb
     if (exists $args_ref->{pkg}) {
         if (ref $args_ref->{pkg} eq "ARRAY") {
             push @packages, @{$args_ref->{pkg}};
+        } else {
+            push @packages, $args_ref->{pkg};
         }
-    } else {
-        push @packages, $args_ref->{pkg};
-
     }
 
     # install the packages
@@ -716,19 +714,29 @@ sub process
         $basename = substr($filename, rindex($filename, '/')+1);
     }
     $debug and say STDERR "debug(process): filename=$filename basename=$basename";
-    require Module::ScanDeps;
-    my $deps_ref = Module::ScanDeps::scan_deps(files => [$filename], recurse => 0, compile => 0);
-    if ($debug) {
-        say "debug: deps_ref = ".Dumper($deps_ref);
-    }
-    my @deps = @{$deps_ref->{$basename}{uses}};
-    foreach my $module (sort @deps) {
-        next if $deps_ref->{$module}{type} ne "module";
-        $module =~ s/\.pm$//;
-        $module =~ s=/=::=;
-        next if exists $pkg_skip{$module};
-        $debug and say STDERR "check_module($module)";
-        check_module($module);
+    {
+        # scan for dependencies
+        require Module::ScanDeps;
+        local $@;
+        my $deps_ref = eval { Module::ScanDeps::scan_deps(files => [$filename], recurse => 0, compile => 0)};
+        if ($@) {
+            say STDERR "process: scan_deps failed on $filename";
+            return;
+        }
+        if ($debug) {
+            say STDERR "debug: deps_ref = ".Dumper($deps_ref);
+        }
+
+        # load Perl modules for dependencies
+        my @deps = @{$deps_ref->{$basename}{uses}};
+        foreach my $module (sort @deps) {
+            next if $deps_ref->{$module}{type} ne "module";
+            $module =~ s/\.pm$//;
+            $module =~ s=/=::=;
+            next if exists $pkg_skip{$module};
+            $debug and say STDERR "check_module($module)";
+            check_module($module);
+        }
     }
     return;
 }
