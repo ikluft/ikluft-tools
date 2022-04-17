@@ -264,7 +264,7 @@ sub set_user_env
 sub collect_sysenv
 {
     # find command locations
-    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum dnf apt apk brew)) {
+    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk brew)) {
         my $filepath = cmd_path($cmd);
         if (defined $filepath) {
             $sysenv{$cmd} = $filepath;
@@ -517,14 +517,20 @@ sub establish_cpan
 sub process
 {
     my $filename = shift;
+    my $basename;
+    if (index($filename, '/') == -1) {
+        # no / in $filename will break Module::ScanDeps, so add full path
+        $basename = $filename;
+        $filename = pwd()."/".$filename;
+    } else {
+        # $filename is a path so keep it that way, and extract basename
+        $basename = substr($filename, rindex($filename, '/')+1);
+    }
+    $debug and say STDERR "debug(process): filename=$filename basename=$basename";
     require Module::ScanDeps;
-    my $deps_ref = Module::ScanDeps::scan_deps(files => [$filename], recurse => 0);
+    my $deps_ref = Module::ScanDeps::scan_deps(files => [$filename], recurse => 0, compile => 0);
     if ($debug) {
         say "debug: deps_ref = ".Dumper($deps_ref);
-    }
-    my $basename = $filename;
-    if ($basename =~ /\//) {
-        $basename =~ s=^.*\/==;
     }
     my @deps = @{$deps_ref->{$basename}{uses}};
     foreach my $module (sort @deps) {
