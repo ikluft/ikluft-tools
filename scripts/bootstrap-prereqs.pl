@@ -20,6 +20,21 @@ my %sources = (
     "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
 );
 my @module_deps = (qw(Module::ScanDeps HTTP::Tiny));
+my %module_cpanonly = (
+    alpine => {
+        #"Module::ScanDeps" => 1,
+    },
+);
+my @cpan_deps = (qw(make));
+my %pkg_type = (
+    "fedora" => "rpm",
+    "rhel" => "rpm",
+    "centos" => "rpm",
+    "debian" => "deb",
+    "ubuntu" => "deb",
+    "alpine" => "apk",
+    "arch" => "pacman",
+);
 my %pkg_override = (
     alpine => {
         "perl-cpan" => "perl-utils",
@@ -35,7 +50,7 @@ my %pkg_skip = (
     "feature" => 1,
     "autodie" => 1,
 );
-my $debug = 1;
+my $debug = (($ENV{DEBUG} // 0) ? 1 : 0);
 
 # run an external command and capture its standard output
 sub capture_cmd
@@ -92,7 +107,7 @@ sub cmd_path
     if (not exists $sysenv{path_list} or not exists $sysenv{path_flag}) {
         $sysenv{path_list} = [split /:/, $ENV{PATH}];
         $sysenv{path_flag} = {map { ($_ => 1) } @{$sysenv{path_list}}};
-        foreach my $dir (qw(/bin /usr/bin /sbin /usr/sbin /opt/bin)) {
+        foreach my $dir (qw(/bin /usr/bin /sbin /usr/sbin /opt/bin /usr/local/bin)) {
             -d $dir or next;
             if (not exists $sysenv{path_flag}{$dir}) {
                 push @{$sysenv{path_list}}, $dir;
@@ -353,7 +368,211 @@ sub run_cmd
 # check if the user is root - if so, return true
 sub is_root
 {
-    return ($sysenv{root} // 0) != 0;
+    return (($sysenv{root} // 0) != 0);
+}
+
+# check if packager command found (rpm)
+sub pkg_pkgcmd_rpm
+{
+    return (exists $sysenv{dnf} or (exists $sysenv{yum} and exists $sysenv{repoquery})) ? 1 : 0;
+}
+
+# find name of package for Perl module (rpm)
+sub pkg_modpkg_rpm
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_rpm();
+    #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
+    my $querycmd = (exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery";
+    my @pkglist = sort capture_cmd($querycmd, qw(--quiet --available --whatprovides), 'perl('.$args_ref->{module}.')');
+    return if not scalar @pkglist; # empty list means nothing found
+    return $pkglist[-1]; # last of sorted list should be most recent version
+}
+
+# find named package in repository (rpm)
+sub pkg_find_rpm
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_rpm();
+    my $querycmd = (exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery";
+    my @pkglist = sort capture_cmd($querycmd, qw(--available --quiet), $args_ref->{pkg});
+    return if not scalar @pkglist; # empty list means nothing found
+    return $pkglist[-1]; # last of sorted list should be most recent version
+}
+
+# install package (rpm)
+sub pkg_install_rpm
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_rpm();
+
+    # determine packages to install
+    my @packages;
+    if (exists $args_ref->{pkg}) {
+        if (ref $args_ref->{pkg} eq "ARRAY") {
+            push @packages, @{$args_ref->{pkg}};
+        }
+    } else {
+        push @packages, $args_ref->{pkg};
+
+    }
+
+    # install the packages
+    my $pkgcmd = $sysenv{dnf} // $sysenv{yum};
+    return run_cmd($pkgcmd, "install", @packages);
+}
+
+# check if packager command found (alpine)
+sub pkg_pkgcmd_apk
+{
+    return (exists $sysenv{apk}) ? 1 : 0;
+}
+
+# find name of package for Perl module (alpine)
+sub pkg_modpkg_apk
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_apk();
+    return join("-", "perl", map {lc $_} @{$args_ref->{mod_parts}}); # alpine format for Perl module packages
+}
+
+# find named package in repository (alpine)
+sub pkg_find_apk
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_apk();
+    my $querycmd = $sysenv{apk};
+    my @pkglist = sort map {s/ .*//} capture_cmd($querycmd, qw(list --available --quiet), $args_ref->{pkg});
+    return if not scalar @pkglist; # empty list means nothing found
+    return $pkglist[-1]; # last of sorted list should be most recent version
+}
+
+# install package (alpine)
+sub pkg_install_apk
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_apk();
+
+    # determine packages to install
+    my @packages;
+    if (exists $args_ref->{pkg}) {
+        if (ref $args_ref->{pkg} eq "ARRAY") {
+            push @packages, @{$args_ref->{pkg}};
+        }
+    } else {
+        push @packages, $args_ref->{pkg};
+
+    }
+
+    # install the packages
+    my $pkgcmd = $sysenv{apk};
+    return run_cmd($pkgcmd, "add", @packages);
+}
+
+# check if packager command found (deb)
+sub pkg_pkgcmd_deb
+{
+    return (exists $sysenv{apt}) ? 1 : 0;
+}
+
+# find name of package for Perl module (deb)
+sub pkg_modpkg_deb
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_deb();
+    return "lib".join("-", (map {lc $_} @{$args_ref->{mod_parts}}), "perl"); # deb format for Perl module packages
+}
+
+# find named package in repository (deb)
+sub pkg_find_deb
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_deb();
+    my $querycmd = $sysenv{apt};
+    my @pkglist = sort capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
+    return if not scalar @pkglist; # empty list means nothing found
+    return $pkglist[-1]; # last of sorted list should be most recent version
+}
+
+# install package (deb)
+sub pkg_install_deb
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_deb();
+
+    # determine packages to install
+    my @packages;
+    if (exists $args_ref->{pkg}) {
+        if (ref $args_ref->{pkg} eq "ARRAY") {
+            push @packages, @{$args_ref->{pkg}};
+        }
+    } else {
+        push @packages, $args_ref->{pkg};
+
+    }
+
+    # install the packages
+    my $pkgcmd = $sysenv{apt};
+    return run_cmd($pkgcmd, "install", @packages);
+}
+
+# handle various systems' packagers
+# op parameter is a string:
+#   implemented: 1 if packager implemented for this system, otherwise undef
+#   pkgcmd: 1 if packager command found, 0 if not found
+#   modpkg(module): find name of package for Perl module
+#   find(pkg): 1 if named package exists, 0 if not
+#   install(pkg): 0 = failure, 1 = success
+# returns undef if not implemented
+#   for ops which return a numeric status: 0 = failure, 1 = success
+#   some ops return a value such as query results
+sub manage_pkg
+{
+    my %args = @_;
+    if (not exists $args{op}) {
+        die "manage_pkg() requires op parameter";
+    }
+
+    # check if packager is implemented for currently-running system
+    if ($args{op} eq "implemented") {
+        if ($sysenv{os} eq "Linux") {
+            if (not exists $sysenv{ID}) {
+                # for Linux packagers, we need ID to tell distros apart - all modern distros should provide one
+                return;
+            }
+            if (not exists $pkg_type{$sysenv{ID}}) {
+                # it gets here on Linux distros which we don't have a packager implementation
+                return;
+            }
+        } else {
+            # so far only Linux packagers are implemented
+            return;
+        }
+        return 1;
+    }
+
+    # if a pkg parameter is present, apply package name override if one is configured
+    if (exists $args{pkg} and exists $pkg_override{$sysenv{ID}}{$args{pkg}}) {
+        $args{pkg} = $pkg_override{$sysenv{ID}}{$args{pkg}};
+    }
+
+    # if a module parameter is present, add mod_parts parameter
+    if (exists $args{module}) {
+        $args{mod_parts} = [split /::/, $args{module}];
+    }
+
+    # look up function which implements op for package type
+    my $funcname = join("_", "pkg", $args{op}, $pkg_type{$sysenv{ID}});
+    $debug and say STDERR "debug: $funcname(".join(" ", map {$_."=".$args{$_}} sort keys %args).")";
+    my $funcref = __PACKAGE__->can($funcname);
+    if (not defined $funcref) {
+        # not implemented
+        $debug and say STDERR "debug: $funcname not implemented";
+        return;
+    }
+
+    # call the function
+    return $funcref->(\%args);
 }
 
 # install a Perl module as an OS package
@@ -362,57 +581,24 @@ sub module_package
     my $module = shift;
 
     # check if we can install a package
-    if ($sysenv{os} ne "Linux") {
-        # currently only Linux can install OS packages
-        return 0;
-    }
     if (not is_root()) {
         # must be root to install an OS package
         return 0;
     }
-
-    my @mod_parts = split /::/, $module;
-    if ($sysenv{ID} eq "fedora" or $sysenv{ID} eq "rhel" or $sysenv{ID} eq "centos") {
-        if (not exists $sysenv{dnf} and not exists $sysenv{yum}) {
-            # no command to install RPM packages
-            return 0;
-        }
-        my $pkgname = join("-", "perl", @mod_parts);
-        if (exists $pkg_override{fedora}{$pkgname}) {
-            $pkgname = $pkg_override{fedora}{$pkgname};
-        }
-        my $pkgcmd = (exists $sysenv{dnf}) ? $sysenv{dnf} : $sysenv{yum};
-        return run_cmd($pkgcmd, "install", $pkgname);
-    } elsif ($sysenv{ID} eq "alpine") {
-        if (not exists $sysenv{apk}) {
-            # no command to install APK packages
-            return 0;
-        }
-        my $pkgname = join("-", "perl", map {lc $_} @mod_parts);
-        if (exists $pkg_override{alpine}{$pkgname}) {
-            $pkgname = $pkg_override{alpine}{$pkgname};
-        }
-        my $pkgcmd = $sysenv{apk};
-        my @pkglist = capture_cmd($pkgcmd, "list", "--available", "--quiet", $pkgname);
-        if (scalar @pkglist == 0) {
-            return 0;
-        }
-        return run_cmd($pkgcmd, "add", $pkgname);
-    } elsif ($sysenv{ID} eq "debian" or $sysenv{ID} eq "ubuntu") {
-        if (not exists $sysenv{apt}) {
-            # no command to install DEB packages
-            return 0;
-        }
-        my $pkgname = "lib".join("-", (map {lc $_} @mod_parts), "perl");
-        if (exists $pkg_override{debian}{$pkgname}) {
-            $pkgname = $pkg_override{debian}{$pkgname};
-        }
-        my $pkgcmd = $sysenv{apt};
-        return run_cmd($pkgcmd, "install", $pkgname);
+    if (not manage_pkg(op => "implemented")) {
+        return 0;
     }
 
-    # unrecognized distribution - assume no package management available
-    return 0;
+    # skip prepared packages in some platforms for known problems
+    if (exists $sysenv{ID} and exists $module_cpanonly{$sysenv{ID}}) {
+        if (exists $module_cpanonly{$sysenv{ID}}{$module} and $module_cpanonly{$sysenv{ID}}{$module}) {
+            return 0;
+        }
+    }
+
+    # handle various package managers
+    my $pkgname = manage_pkg(op => "modpkg", module => $module);
+    return manage_pkg(op => "install", pkg => $pkgname);
 }
 
 # bootstrap CPAN-Minus in a subdirectory of the current directory
@@ -493,6 +679,9 @@ sub establish_cpan
     }
 
     # install CPAN if it doesn't exist
+    if (is_root()) {
+        manage_pkg(op => "install", pkg => \@cpan_deps); # package dependencies for CPAN (i.e. make)
+    }
     if (not exists $sysenv{cpan}) {
         # try to install CPAN as an OS package
         if (is_root()) {
