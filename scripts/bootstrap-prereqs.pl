@@ -42,6 +42,9 @@ my %pkg_override = (
     debian => {
         "libapp-cpanminus-perl" => "cpanminus",
     },
+    ubuntu => {
+        "libapp-cpanminus-perl" => "cpanminus",
+    },
 );
 my %pkg_skip = (
     "strict" => 1,
@@ -295,8 +298,8 @@ sub collect_sysenv
         die "error: can't find uname command to collect system information";
     }
     $sysenv{os} = capture_cmd($uname);
-    $sysenv{kernel} = capture_cmd($uname, "-r");
-    $sysenv{machine} = capture_cmd($uname, "-m");
+    $sysenv{kernel} = capture_cmd("$uname -r");
+    $sysenv{machine} = capture_cmd("$uname -m");
 
     # if /etc/os-release exists (on most Linux systems), read it
     if (-f "/etc/os-release") {
@@ -378,7 +381,7 @@ sub is_root
 # check if packager command found (rpm)
 sub pkg_pkgcmd_rpm
 {
-    return (exists $sysenv{dnf} or (exists $sysenv{yum} and exists $sysenv{repoquery})) ? 1 : 0;
+    return ((exists $sysenv{dnf} or (exists $sysenv{yum} and exists $sysenv{repoquery})) ? 1 : 0);
 }
 
 # find name of package for Perl module (rpm)
@@ -387,8 +390,8 @@ sub pkg_modpkg_rpm
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
     #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
-    my $querycmd = (exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery";
-    my @pkglist = sort capture_cmd($querycmd, qw(--quiet --available --whatprovides), 'perl('.$args_ref->{module}.')');
+    my $querycmd = ((exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery");
+    my @pkglist = sort capture_cmd("$querycmd --quiet --available --whatprovides perl($args_ref->{module})");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -398,8 +401,8 @@ sub pkg_find_rpm
 {
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
-    my $querycmd = (exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery";
-    my @pkglist = sort capture_cmd($querycmd, qw(--available --quiet), $args_ref->{pkg});
+    my $querycmd = ((exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery");
+    my @pkglist = sort capture_cmd("$querycmd --available --quiet $args_ref->{pkg}");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -428,7 +431,7 @@ sub pkg_install_rpm
 # check if packager command found (alpine)
 sub pkg_pkgcmd_apk
 {
-    return (exists $sysenv{apk}) ? 1 : 0;
+    return (exists $sysenv{apk} ? 1 : 0);
 }
 
 # find name of package for Perl module (alpine)
@@ -445,7 +448,7 @@ sub pkg_find_apk
     my $args_ref = shift;
     return if not pkg_pkgcmd_apk();
     my $querycmd = $sysenv{apk};
-    my @pkglist = sort map {s/ .*//} capture_cmd($querycmd, qw(list --available --quiet), $args_ref->{pkg});
+    my @pkglist = sort map {s/ .*//} capture_cmd("$querycmd list --available --quiet $args_ref->{pkg}");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -474,7 +477,7 @@ sub pkg_install_apk
 # check if packager command found (deb)
 sub pkg_pkgcmd_deb
 {
-    return (exists $sysenv{apt}) ? 1 : 0;
+    return (exists $sysenv{apt} ? 1 : 0);
 }
 
 # find name of package for Perl module (deb)
@@ -491,7 +494,7 @@ sub pkg_find_deb
     my $args_ref = shift;
     return if not pkg_pkgcmd_deb();
     my $querycmd = $sysenv{apt};
-    my @pkglist = sort capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
+    my @pkglist = sort capture_cmd("$querycmd list --all-versions $args_ref->{pkg}");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -629,7 +632,7 @@ sub bootstrap_cpanm
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
         or die "download failed for App::cpanminus";
-    my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd($sysenv{tar}, "-tf", "app-cpanminus.tar.gz");
+    my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd("$sysenv{tar} -tf app-cpanminus.tar.gz");
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
