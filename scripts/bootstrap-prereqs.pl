@@ -19,10 +19,10 @@ my %sysenv;
 my %sources = (
     "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
 );
-my @module_deps = qw(Module::ScanDeps HTTP::Tiny);
+my @module_deps = qw(Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
 my %module_cpanonly = (
     alpine => {
-        #"Module::ScanDeps" => 1,
+        #"Perl::PrereqScanner::NotQuiteLite" => 1,
     },
 );
 my @cpan_deps = (qw(make));
@@ -270,9 +270,12 @@ sub set_user_env
 
     # display updated environment variables
     say "using environment settings: (add these to login shell rc script if needed)";
+    say '-' x 75;
     foreach my $varname (qw(PATH PERL5LIB PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT MANPATH)) {
         say "export $varname=$ENV{$varname}";
     }
+    say '-' x 75;
+    say '';
 }
 
 # collect system environment info
@@ -706,7 +709,7 @@ sub process
     my $filename = shift;
     my $basename;
     if (index($filename, '/') == -1) {
-        # no / in $filename will break Module::ScanDeps, so add full path
+        # no / in $filename will break Perl::PrereqScanner::NotQuiteLite, so add full path
         $basename = $filename;
         $filename = pwd()."/".$filename;
     } else {
@@ -714,29 +717,20 @@ sub process
         $basename = substr($filename, rindex($filename, '/')+1);
     }
     $debug and say STDERR "debug(process): filename=$filename basename=$basename";
-    {
-        # scan for dependencies
-        require Module::ScanDeps;
-        local $@;
-        my $deps_ref = eval { Module::ScanDeps::scan_deps(files => [$filename], recurse => 0, compile => 0)};
-        if ($@) {
-            say STDERR "process: scan_deps failed on $filename";
-            return;
-        }
-        if ($debug) {
-            say STDERR "debug: deps_ref = ".Dumper($deps_ref);
-        }
 
-        # load Perl modules for dependencies
-        my @deps = @{$deps_ref->{$basename}{uses}};
-        foreach my $module (sort @deps) {
-            next if $deps_ref->{$module}{type} ne "module";
-            $module =~ s/\.pm$//;
-            $module =~ s=/=::=;
-            next if exists $pkg_skip{$module};
-            $debug and say STDERR "check_module($module)";
-            check_module($module);
-        }
+    # scan for dependencies
+    require Perl::PrereqScanner::NotQuiteLite;
+    my $scanner = Perl::PrereqScanner::NotQuiteLite->new();
+    my $deps_ref = $scanner->scan_file($filename);
+    $debug and say STDERR "debug: deps_ref = ".Dumper($deps_ref);
+
+    # load Perl modules for dependencies
+    my $deps = $deps_ref->requires();
+    $debug and say STDERR "deps = ".Dumper($deps);
+    foreach my $module (sort keys %{$deps->{requirements}}) {
+        next if exists $pkg_skip{$module};
+        $debug and say STDERR "check_module($module)";
+        check_module($module);
     }
     return;
 }
