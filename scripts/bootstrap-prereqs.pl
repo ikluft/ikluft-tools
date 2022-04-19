@@ -14,75 +14,79 @@ use autodie;
 use feature qw(say);
 use Data::Dumper;
 
-# system environment & globals
-my %sysenv;
+# system environment (read only)
 my %sources = (
     "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
 );
-my @module_deps = qw(Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
-my %module_cpanonly = (
-    alpine => {
-        #"Perl::PrereqScanner::NotQuiteLite" => 1,
+my @module_deps = qw(IPC::Run Term::ANSIColor Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
+my @cpan_deps = (qw(curl make));
+
+# platform/package configuration
+my %platconf = (
+    # packaging system type
+    type => {
+        fedora => "rpm",
+        rocky => "rpm",
+        almalinux => "rpm",
+        debian => "deb",
+        ubuntu => "deb",
+        alpine => "apk",
+        arch => "pacman",
+    },
+
+    # package name override where computed name is not correct
+    override => {
+        debian => {
+            "libapp-cpanminus-perl" => "cpanminus",
+        },
+        ubuntu => {
+            "libapp-cpanminus-perl" => "cpanminus",
+        },
+    },
+
+    # built-in modules/pragmas to skip processing as dependencies
+    skip => {
+        "strict" => 1,
+        "warnings" => 1,
+        "utf8" => 1,
+        "feature" => 1,
+        "autodie" => 1,
+    },
+
+    # prerequisite OS packages for CPAN
+    prereq => {
+        alpine => [qw(perl-utils)],
+        fedora => [qw(perl-CPAN)],
+        rocky => [qw(perl-CPAN)],
+        almalinux => [qw(perl-CPAN)],
+        debian => [qw(perl-modules)],
+        ubuntu => [qw(perl-modules)],
     },
 );
-my @cpan_deps = (qw(make));
-my %pkg_type = (
-    "fedora" => "rpm",
-    "rhel" => "rpm",
-    "centos" => "rpm",
-    "debian" => "deb",
-    "ubuntu" => "deb",
-    "alpine" => "apk",
-    "arch" => "pacman",
-);
-my %pkg_override = (
-    alpine => {
-        "perl-cpan" => "perl-utils",
-    },
-    debian => {
-        "libapp-cpanminus-perl" => "cpanminus",
-    },
-    ubuntu => {
-        "libapp-cpanminus-perl" => "cpanminus",
-    },
-);
-my %pkg_skip = (
-    "strict" => 1,
-    "warnings" => 1,
-    "utf8" => 1,
-    "feature" => 1,
-    "autodie" => 1,
-);
+
+# globals (read/write)
 my $debug = (($ENV{DEBUG} // 0) ? 1 : 0);
+my %sysenv;
+my %modules_loaded;
 
-# run an external command and capture its standard output
-sub capture_cmd
+# functions that query %pkg configuration
+sub plat_type
 {
-    my $cmd = shift;
-    no autodie;
-    open my $fh, "-|", $cmd
-        or die "failed to run pipe command '$cmd': $!";
-    my @output;
-    while (<$fh>) {
-        chomp;
-        push @output, $_;
-    }
-    if (close $fh) {
-        return wantarray ? @output : join("\n", @output);
-    }
-    if ($!) {
-        warn "failed to close pipe for command '$cmd': $!";
-    }
-    warn "exit status $? from command '$cmd'";
-    return;
+    return $platconf{type}{$sysenv{ID}}; # undef intentionally returned if it doesn't exist
 }
-
-# get working directory (with minimal library prerequisites)
-sub pwd
+sub pkg_override
 {
-    my $pwd = capture_cmd('pwd');
-    chomp $pwd;
-    return $pwd;
+    my $pkg = shift;
+    return $platconf{override}{$sysenv{ID}}{$pkg}; # undef intentionally returned if it doesn't exist
+}
+sub pkg_skip
+{
+    my $module = shift;
+    return (($platconf{skip}{$module} // 0) ? 1 : 0);
+}
+sub cpan_prereqs
+{
+    return (@cpan_deps, @{$platconf{prereq}{$sysenv{ID}} // []});
 }
 
 # determine if a Perl module is installed
@@ -90,15 +94,67 @@ sub module_installed
 {
     my $name = shift;
 
+    # short-circuit the search if we loaded the module or found it installed before
+    return 1 if ($modules_loaded{$name} // 0);
+
     # check each path element for the module
     my $modfile = join("/", split(/::/, $name));
     foreach my $element (@INC) {
         my $filepath = "$element/$modfile.pm";
         if (-f $filepath) {
+            $modules_loaded{$name} = 1;
             return 1;
         }
     }
     return 0;
+}
+
+
+# run an external command and capture its standard output
+sub capture_cmd
+{
+    my @cmd = @_;
+    $debug and say STDERR "debug(capture_cmd): ".join(" ", @cmd);
+
+    # alternative if IPC::Run isn't yet loaded
+    my @output;
+    if (not module_installed('IPC::Run')) {
+        # only use simple commands until IPC::Run is loaded because @cmd is concatenated into $cmd without quotes
+        no autodie;
+        my $cmd = join " ", @cmd;
+        open my $fh, "-|", $cmd
+            or die "failed to run pipe command '$cmd': $!";
+        while (<$fh>) {
+            chomp;
+            push @output, $_;
+        }
+        close $fh
+            or warn "failed to close pipe for command '$cmd': $!";;
+        if ($? != 0) {
+            warn "exit status $? from command '$cmd'";
+            return;
+        }
+    } else {
+        # use IPC::Run once it's available to capture output of commands
+        require IPC::Run;
+        my $output;
+        IPC::Run::run(\@cmd, '<', \undef, '>', \$output);
+        @output = split /\r\n?/, $output;
+        if ((scalar @output > 0) and $output[-1] eq "") {
+            # remove extraneous blank line from the end, side effect of split on newlines
+            pop @output;
+        }
+        chomp @output;
+    }
+    return wantarray ? @output : join("\n", @output);
+}
+
+# get working directory (with minimal library prerequisites)
+sub pwd
+{
+    my $pwd = capture_cmd('pwd');
+    $debug and say STDERR "debug: pwd = $pwd";
+    return $pwd;
 }
 
 # find executable files in the $PATH and standard places
@@ -286,8 +342,7 @@ sub collect_sysenv
 {
     # find command locations
     foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk brew)) {
-        my $filepath = cmd_path($cmd);
-        if (defined $filepath) {
+        if (my $filepath = cmd_path($cmd)) {
             $sysenv{$cmd} = $filepath;
         }
     }
@@ -298,8 +353,8 @@ sub collect_sysenv
         die "error: can't find uname command to collect system information";
     }
     $sysenv{os} = capture_cmd($uname);
-    $sysenv{kernel} = capture_cmd("$uname -r");
-    $sysenv{machine} = capture_cmd("$uname -m");
+    $sysenv{kernel} = capture_cmd($uname, "-r");
+    $sysenv{machine} = capture_cmd($uname, "-m");
 
     # if /etc/os-release exists (on most Linux systems), read it
     if (-f "/etc/os-release") {
@@ -390,8 +445,8 @@ sub pkg_modpkg_rpm
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
     #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
-    my $querycmd = ((exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery");
-    my @pkglist = sort capture_cmd("$querycmd --quiet --available --whatprovides perl($args_ref->{module})");
+    my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
+    my @pkglist = sort capture_cmd(@querycmd, qw(--quiet --available --whatprovides), "perl($args_ref->{module})");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -401,8 +456,8 @@ sub pkg_find_rpm
 {
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
-    my $querycmd = ((exists $sysenv{dnf}) ? "dnf repoquery" : "repoquery");
-    my @pkglist = sort capture_cmd("$querycmd --available --quiet $args_ref->{pkg}");
+    my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
+    my @pkglist = sort capture_cmd(@querycmd, qw(--available --quiet), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -425,7 +480,7 @@ sub pkg_install_rpm
 
     # install the packages
     my $pkgcmd = $sysenv{dnf} // $sysenv{yum};
-    return run_cmd($pkgcmd, "install", @packages);
+    return run_cmd($pkgcmd, "install", "--assumeyes", @packages);
 }
 
 # check if packager command found (alpine)
@@ -439,7 +494,14 @@ sub pkg_modpkg_apk
 {
     my $args_ref = shift;
     return if not pkg_pkgcmd_apk();
-    return join("-", "perl", map {lc $_} @{$args_ref->{mod_parts}}); # alpine format for Perl module packages
+    my $pkgname = join("-", "perl", map {lc $_} @{$args_ref->{mod_parts}}); # alpine format for Perl module packages
+    $args_ref->{pkg} = $pkgname;
+    if (not pkg_find_apk($args_ref)) {
+        return;
+    }
+
+    # package was found - return the simpler name since pkg add won't take this full string
+    return $pkgname;
 }
 
 # find named package in repository (alpine)
@@ -448,7 +510,8 @@ sub pkg_find_apk
     my $args_ref = shift;
     return if not pkg_pkgcmd_apk();
     my $querycmd = $sysenv{apk};
-    my @pkglist = sort map {s/ .*//} capture_cmd("$querycmd list --available --quiet $args_ref->{pkg}");
+    my @pkglist = sort map {substr($_,0,index($_," "))}
+        (capture_cmd($querycmd, qw(list --available --quiet), $args_ref->{pkg}));
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -494,7 +557,7 @@ sub pkg_find_deb
     my $args_ref = shift;
     return if not pkg_pkgcmd_deb();
     my $querycmd = $sysenv{apt};
-    my @pkglist = sort capture_cmd("$querycmd list --all-versions $args_ref->{pkg}");
+    my @pkglist = sort capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -517,7 +580,7 @@ sub pkg_install_deb
 
     # install the packages
     my $pkgcmd = $sysenv{apt};
-    return run_cmd($pkgcmd, "install", @packages);
+    return run_cmd($pkgcmd, "install", "--yes", @packages);
 }
 
 # handle various systems' packagers
@@ -544,7 +607,7 @@ sub manage_pkg
                 # for Linux packagers, we need ID to tell distros apart - all modern distros should provide one
                 return;
             }
-            if (not exists $pkg_type{$sysenv{ID}}) {
+            if (not plat_type()) {
                 # it gets here on Linux distros which we don't have a packager implementation
                 return;
             }
@@ -556,8 +619,8 @@ sub manage_pkg
     }
 
     # if a pkg parameter is present, apply package name override if one is configured
-    if (exists $args{pkg} and exists $pkg_override{$sysenv{ID}}{$args{pkg}}) {
-        $args{pkg} = $pkg_override{$sysenv{ID}}{$args{pkg}};
+    if (exists $args{pkg} and pkg_override($args{pkg})) {
+        $args{pkg} = pkg_override($args{pkg});
     }
 
     # if a module parameter is present, add mod_parts parameter
@@ -566,7 +629,7 @@ sub manage_pkg
     }
 
     # look up function which implements op for package type
-    my $funcname = join("_", "pkg", $args{op}, $pkg_type{$sysenv{ID}});
+    my $funcname = join("_", "pkg", $args{op}, plat_type());
     $debug and say STDERR "debug: $funcname(".join(" ", map {$_."=".$args{$_}} sort keys %args).")";
     my $funcref = __PACKAGE__->can($funcname);
     if (not defined $funcref) {
@@ -577,6 +640,22 @@ sub manage_pkg
 
     # call the function
     return $funcref->(\%args);
+}
+
+# return string to turn text green
+sub text_green
+{
+    module_installed('Term::ANSIColor') or return "";
+    require Term::ANSIColor;
+    return Term::ANSIColor::color('green');
+}
+
+# return string to turn text back to normal
+sub text_color_reset
+{
+    module_installed('Term::ANSIColor') or return "";
+    require Term::ANSIColor;
+    return Term::ANSIColor::color('reset');
 }
 
 # install a Perl module as an OS package
@@ -593,15 +672,12 @@ sub module_package
         return 0;
     }
 
-    # skip prepared packages in some platforms for known problems
-    if (exists $sysenv{ID} and exists $module_cpanonly{$sysenv{ID}}) {
-        if (exists $module_cpanonly{$sysenv{ID}}{$module} and $module_cpanonly{$sysenv{ID}}{$module}) {
-            return 0;
-        }
-    }
-
     # handle various package managers
     my $pkgname = manage_pkg(op => "modpkg", module => $module);
+    return 0 if (not defined $pkgname) or length($pkgname) == 0;
+    say '';
+    say text_green()."install $sysenv{ID} package $pkgname for $module".text_color_reset();
+
     return manage_pkg(op => "install", pkg => $pkgname);
 }
 
@@ -632,7 +708,7 @@ sub bootstrap_cpanm
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
         or die "download failed for App::cpanminus";
-    my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd("$sysenv{tar} -tf app-cpanminus.tar.gz");
+    my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz));
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
@@ -647,10 +723,15 @@ sub check_module
 
     # check if module is installed
     if (not module_installed($name)) {
+        # print header for module installation
+        say  text_green().('-' x 75);
+        say "install $name".text_color_reset();
+
         # try first to install it with an OS package (root required)
         my $done=0;
         if (is_root()) {
             if (module_package($name)) {
+                $modules_loaded{$name} = 1;
                 $done=1;
             }
         }
@@ -659,6 +740,7 @@ sub check_module
         if (not $done) {
             run_cmd($sysenv{cpan}, $name)
                 or die "failed to install $name module";
+            $modules_loaded{$name} = 1;
         }
     }
     return;
@@ -667,8 +749,22 @@ sub check_module
 # establish CPAN if not already present
 sub establish_cpan
 {
-    # install CPAN-Minus if it doesn't exist
-    if (not exists $sysenv{cpanm}) {
+    # first get package dependencies for CPAN (and CPAN too if available via OS package)
+    if (is_root()) {
+        # package dependencies for CPAN (i.e. make, or oddly-named OS package that contains CPAN)
+        my @deps = cpan_prereqs();
+        manage_pkg(op => "install", pkg => \@deps);
+
+        # check for commands which were installed by their package name, and specifically look for cpan by any package
+        foreach my $dep (@deps, "cpan") {
+            if (my $filepath = cmd_path($dep)) {
+                $sysenv{$dep} = $filepath;
+            }
+        }
+    }
+
+    # install CPAN-Minus if neither CPAN nor CPAN-Minus exist
+    if (not exists $sysenv{cpan} and not exists $sysenv{cpanm}) {
         # try to install CPAN-Minus as an OS package
         if (is_root()) {
             if (module_package("App::cpanminus")) {
@@ -683,9 +779,6 @@ sub establish_cpan
     }
 
     # install CPAN if it doesn't exist
-    if (is_root()) {
-        manage_pkg(op => "install", pkg => \@cpan_deps); # package dependencies for CPAN (i.e. make)
-    }
     if (not exists $sysenv{cpan}) {
         # try to install CPAN as an OS package
         if (is_root()) {
@@ -694,9 +787,11 @@ sub establish_cpan
             }
         }
 
-        # try again if it wasn't installed by a package
+        # try again with cpanminus if it wasn't installed by a package
         if (not exists $sysenv{cpan}) {
-            run_cmd($sysenv{cpanm}, "CPAN");
+            if (run_cmd($sysenv{cpanm}, "CPAN")) {
+                $sysenv{cpan} = cmd_path("cpan");
+            }
         }
     }
 
@@ -712,7 +807,7 @@ sub process
     my $filename = shift;
     my $basename;
     if (index($filename, '/') == -1) {
-        # no / in $filename will break Perl::PrereqScanner::NotQuiteLite, so add full path
+        # no directory provided so use pwd
         $basename = $filename;
         $filename = pwd()."/".$filename;
     } else {
@@ -731,7 +826,7 @@ sub process
     my $deps = $deps_ref->requires();
     $debug and say STDERR "deps = ".Dumper($deps);
     foreach my $module (sort keys %{$deps->{requirements}}) {
-        next if exists $pkg_skip{$module};
+        next if pkg_skip($module);
         $debug and say STDERR "check_module($module)";
         check_module($module);
     }
