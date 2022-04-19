@@ -210,61 +210,20 @@ sub dedup_path
     return join ":", @out_path;
 }
 
-# set up user library and environment variables
-# this is called for non-root users
-sub set_user_env
+# save library hints where user's local Perl modules go, observed in search/cleanup of paths
+sub save_hint
 {
-    # find or create library under home directory
-    if (exists $ENV{HOME}) {
-        $sysenv{home} = $ENV{HOME};
+    my ($item, $lib_hints_ref, $hints_seen_ref) = @_;
+    if (not exists $hints_seen_ref->{$item}) {
+        push @{$lib_hints_ref}, $item;
+        $hints_seen_ref->{$item} = 1;
     }
+    return;
+}
 
-    # use environment variables to look for user's Perl library
-    my @lib_hints;
-    my %hints_seen;
-    if (exists $ENV{PERL_LOCAL_LIB_ROOT}) {
-        foreach my $item (split /:/x, $ENV{PERL_LOCAL_LIB_ROOT}) {
-            if ($item =~ qr(^$sysenv{home}/)x) {
-                $item =~ s=/$==x; # remove trailing slash if present
-                if (not exists $hints_seen{$item}) {
-                    push @lib_hints, $item;
-                    $hints_seen{$item} = 1;
-                }
-            }
-        }
-    }
-    if (exists $ENV{PERL5LIB}) {
-        foreach my $item (split /:/x, $ENV{PERL5LIB}) {
-            if ($item =~ qr(^$sysenv{home}/)x) {
-                $item =~ s=/$==x; # remove trailing slash if present
-                $item =~ s=/[^/]+$==x; # remove last directory from path
-                if (not exists $hints_seen{$item}) {
-                    push @lib_hints, $item;
-                    $hints_seen{$item} = 1;
-                }
-            }
-        }
-    }
-    if (exists $ENV{PATH}) {
-        foreach my $item (split /:/x, $ENV{PATH}) {
-            if ($item =~ qr(^$sysenv{home}/)x and $item =~ qr(/perl[5]?/)x) {
-                $item =~ s=/$==x; # remove trailing slash if present
-                $item =~ s=/[^/]+$==x; # remove last directory from path
-                if (not exists $hints_seen{$item}) {
-                    push @lib_hints, $item;
-                    $hints_seen{$item} = 1;
-                }
-            }
-        }
-    }
-    foreach my $dirpath (@lib_hints) {
-        if (-d $dirpath and -w $dirpath) {
-            $sysenv{perlbase} = $dirpath;
-            last;
-        }
-    }
-    
-    # more exhaustive search for user's local perl library directory
+# more exhaustive search for user's local perl library directory
+sub user_perldir_search_loop
+{
     if (not exists $sysenv{perlbase}) {
         DIRLOOP: foreach my $dirpath ($sysenv{home}, $sysenv{home}."/lib", $sysenv{home}."/.local") {
             foreach my $perlname (qw(perl perl5)) {
@@ -275,8 +234,12 @@ sub set_user_env
             }
         }
     }
+    return;
+}
 
-    # if the user's local perl library doesn't exist, create it
+# if the user's local perl library doesn't exist, create it
+sub user_perldir_create
+{
     if (not exists $sysenv{perlbase}) {
         # use a default that complies with XDG directory structure
         my $need_path;
@@ -291,6 +254,65 @@ sub set_user_env
         symlink $sysenv{home}."/.local/perl", $sysenv{perlbase}
             or croak "failed to symlink $sysenv{home}/.local/perl to $sysenv{perlbase}: $!";
     }
+    return;
+}
+
+# find or create user's local Perl directory
+sub user_perldir_search
+{
+    # use environment variables to look for user's Perl library
+    my @lib_hints;
+    my %hints_seen;
+    if (exists $ENV{PERL_LOCAL_LIB_ROOT}) {
+        foreach my $item (split /:/x, $ENV{PERL_LOCAL_LIB_ROOT}) {
+            if ($item =~ qr(^$sysenv{home}/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
+                save_hint($item, \@lib_hints, \%hints_seen);
+            }
+        }
+    }
+    if (exists $ENV{PERL5LIB}) {
+        foreach my $item (split /:/x, $ENV{PERL5LIB}) {
+            if ($item =~ qr(^$sysenv{home}/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
+                $item =~ s=/[^/]+$==x; # remove last directory from path
+                save_hint($item, \@lib_hints, \%hints_seen);
+            }
+        }
+    }
+    if (exists $ENV{PATH}) {
+        foreach my $item (split /:/x, $ENV{PATH}) {
+            if ($item =~ qr(^$sysenv{home}/)x and $item =~ qr(/perl[5]?/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
+                $item =~ s=/[^/]+$==x; # remove last directory from path
+                save_hint($item, \@lib_hints, \%hints_seen);
+            }
+        }
+    }
+    foreach my $dirpath (@lib_hints) {
+        if (-d $dirpath and -w $dirpath) {
+            $sysenv{perlbase} = $dirpath;
+            last;
+        }
+    }
+    
+    # more exhaustive search for user's local perl library directory
+    user_perldir_search_loop();
+
+    # if the user's local perl library doesn't exist, create it
+    user_perldir_create();
+    return;
+}
+
+# set up user library and environment variables
+# this is called for non-root users
+sub set_user_env
+{
+    # find or create library under home directory
+    if (exists $ENV{HOME}) {
+        $sysenv{home} = $ENV{HOME};
+    }
+    user_perldir_search();
 
     #
     # set user environment variables similar to local::lib
