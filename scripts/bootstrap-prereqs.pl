@@ -19,7 +19,7 @@ use Data::Dumper;
 my %sources = (
     "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
 );
-my @module_deps = qw(IPC::Run Term::ANSIColor Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
+my @module_deps = qw(Term::ANSIColor Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
 my @cpan_deps = (qw(curl make));
 
 # platform/package configuration
@@ -116,13 +116,12 @@ sub capture_cmd
 {
     my @cmd = @_;
     $debug and say STDERR "debug(capture_cmd): ".join(" ", @cmd);
-
-    # alternative if IPC::Run isn't yet loaded
     my @output;
-    if (not module_installed('IPC::Run')) {
-        # only use simple commands until IPC::Run is loaded because @cmd is concatenated into $cmd without quotes
+    my $cmd = join( " ", @cmd);
+
+    # @cmd is concatenated into $cmd - any args which need quotes should have them included
+    {
         no autodie;
-        my $cmd = join " ", @cmd;
         open my $fh, "-|", $cmd
             or croak "failed to run pipe command '$cmd': $!";
         while (<$fh>) {
@@ -131,21 +130,10 @@ sub capture_cmd
         }
         close $fh
             or carp "failed to close pipe for command '$cmd': $!";;
-        if ($? != 0) {
-            carp "exit status $? from command '$cmd'";
-            return;
-        }
-    } else {
-        # use IPC::Run once it's available to capture output of commands
-        require IPC::Run;
-        my $output;
-        IPC::Run::run(\@cmd, '<', \undef, '>', \$output);
-        @output = split /\r\n?/x, $output;
-        if ((scalar @output > 0) and $output[-1] eq "") {
-            # remove extraneous blank line from the end, side effect of split on newlines
-            pop @output;
-        }
-        chomp @output;
+    }
+    if ($? != 0) {
+        carp "exit status $? from command '$cmd'";
+        return;
     }
     return wantarray ? @output : join("\n", @output);
 }
@@ -440,7 +428,10 @@ sub run_cmd
 {
     my @cmd = @_;
     $debug and say STDERR "debug(run_cmd): ".join(" ", @cmd);
-    system @cmd;
+    {
+        no autodie;
+        system @cmd;
+    }
     if ($? == -1) {
         say STDERR "failed to execute '".(join " ", @cmd)."': $!";
         exit 1;
@@ -479,7 +470,8 @@ sub pkg_modpkg_rpm
     return if not pkg_pkgcmd_rpm();
     #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort capture_cmd(@querycmd, qw(--quiet --available --whatprovides), "perl($args_ref->{module})");
+    my @pkglist = sort &capture_cmd(@querycmd, qw(--quiet --available --whatprovides),
+        "'perl(".$args_ref->{module}.")'");
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -490,7 +482,7 @@ sub pkg_find_rpm
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort capture_cmd(@querycmd, qw(--available --quiet), $args_ref->{pkg});
+    my @pkglist = sort &capture_cmd(@querycmd, qw(--available --quiet), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -513,7 +505,7 @@ sub pkg_install_rpm
 
     # install the packages
     my $pkgcmd = $sysenv{dnf} // $sysenv{yum};
-    return run_cmd($pkgcmd, "install", "--assumeyes", @packages);
+    return run_cmd($pkgcmd, "install", "--assumeyes", "--setopt=install_weak_deps=False ", @packages);
 }
 
 # check if packager command found (alpine)
@@ -590,7 +582,7 @@ sub pkg_find_deb
     my $args_ref = shift;
     return if not pkg_pkgcmd_deb();
     my $querycmd = $sysenv{apt};
-    my @pkglist = sort capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
+    my @pkglist = sort &capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -741,7 +733,7 @@ sub bootstrap_cpanm
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
         or croak "download failed for App::cpanminus";
-    my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz));
+    my $cpanm_path = grep {qr(/bin/cpanm$)x} (capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz)));
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
