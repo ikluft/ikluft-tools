@@ -12,6 +12,7 @@ use warnings;
 use utf8;
 use autodie;
 use feature qw(say);
+use Carp qw(carp croak);
 use Data::Dumper;
 
 # system environment (read only)
@@ -98,7 +99,7 @@ sub module_installed
     return 1 if ($modules_loaded{$name} // 0);
 
     # check each path element for the module
-    my $modfile = join("/", split(/::/, $name));
+    my $modfile = join("/", split(/::/x, $name));
     foreach my $element (@INC) {
         my $filepath = "$element/$modfile.pm";
         if (-f $filepath) {
@@ -123,15 +124,15 @@ sub capture_cmd
         no autodie;
         my $cmd = join " ", @cmd;
         open my $fh, "-|", $cmd
-            or die "failed to run pipe command '$cmd': $!";
+            or croak "failed to run pipe command '$cmd': $!";
         while (<$fh>) {
             chomp;
             push @output, $_;
         }
         close $fh
-            or warn "failed to close pipe for command '$cmd': $!";;
+            or carp "failed to close pipe for command '$cmd': $!";;
         if ($? != 0) {
-            warn "exit status $? from command '$cmd'";
+            carp "exit status $? from command '$cmd'";
             return;
         }
     } else {
@@ -139,7 +140,7 @@ sub capture_cmd
         require IPC::Run;
         my $output;
         IPC::Run::run(\@cmd, '<', \undef, '>', \$output);
-        @output = split /\r\n?/, $output;
+        @output = split /\r\n?/x, $output;
         if ((scalar @output > 0) and $output[-1] eq "") {
             # remove extraneous blank line from the end, side effect of split on newlines
             pop @output;
@@ -164,7 +165,7 @@ sub cmd_path
 
     # collect and cache path info
     if (not exists $sysenv{path_list} or not exists $sysenv{path_flag}) {
-        $sysenv{path_list} = [split /:/, $ENV{PATH}];
+        $sysenv{path_list} = [split /:/x, $ENV{PATH}];
         $sysenv{path_flag} = {map { ($_ => 1) } @{$sysenv{path_list}}};
         foreach my $dir (qw(/bin /usr/bin /sbin /usr/sbin /opt/bin /usr/local/bin)) {
             -d $dir or next;
@@ -193,7 +194,7 @@ sub dedup_path
     my %path_seen;
     
     # construct path lists and deduplicate
-    foreach my $dir (map {split /:/, $_} @in_paths) {
+    foreach my $dir (map {split /:/x, $_} @in_paths) {
         $debug and say STDERR "debug: found $dir";
         if ($dir eq "." ) {
             # omit "." for good security practice
@@ -222,9 +223,9 @@ sub set_user_env
     my @lib_hints;
     my %hints_seen;
     if (exists $ENV{PERL_LOCAL_LIB_ROOT}) {
-        foreach my $item (split /:/, $ENV{PERL_LOCAL_LIB_ROOT}) {
-            if ($item =~ qr(^$sysenv{home}/)) {
-                $item =~ s=/$==; # remove trailing slash if present
+        foreach my $item (split /:/x, $ENV{PERL_LOCAL_LIB_ROOT}) {
+            if ($item =~ qr(^$sysenv{home}/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
                 if (not exists $hints_seen{$item}) {
                     push @lib_hints, $item;
                     $hints_seen{$item} = 1;
@@ -233,10 +234,10 @@ sub set_user_env
         }
     }
     if (exists $ENV{PERL5LIB}) {
-        foreach my $item (split /:/, $ENV{PERL5LIB}) {
-            if ($item =~ qr(^$sysenv{home}/)) {
-                $item =~ s=/$==; # remove trailing slash if present
-                $item =~ s=/[^/]+$==; # remove last directory from path
+        foreach my $item (split /:/x, $ENV{PERL5LIB}) {
+            if ($item =~ qr(^$sysenv{home}/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
+                $item =~ s=/[^/]+$==x; # remove last directory from path
                 if (not exists $hints_seen{$item}) {
                     push @lib_hints, $item;
                     $hints_seen{$item} = 1;
@@ -245,10 +246,10 @@ sub set_user_env
         }
     }
     if (exists $ENV{PATH}) {
-        foreach my $item (split /:/, $ENV{PATH}) {
-            if ($item =~ qr(^$sysenv{home}/) and $item =~ qr(/perl[5]?/)) {
-                $item =~ s=/$==; # remove trailing slash if present
-                $item =~ s=/[^/]+$==; # remove last directory from path
+        foreach my $item (split /:/x, $ENV{PATH}) {
+            if ($item =~ qr(^$sysenv{home}/)x and $item =~ qr(/perl[5]?/)x) {
+                $item =~ s=/$==x; # remove trailing slash if present
+                $item =~ s=/[^/]+$==x; # remove last directory from path
                 if (not exists $hints_seen{$item}) {
                     push @lib_hints, $item;
                     $hints_seen{$item} = 1;
@@ -283,12 +284,12 @@ sub set_user_env
             $need_path = (defined $need_path) ? "$need_path/$need_dir" : $need_dir;
             if (! -d $need_path) {
                 mkdir $need_path, 755
-                    or die "failed to create $need_path: $!";
+                    or croak "failed to create $need_path: $!";
             }
         }
         $sysenv{perlbase} = $sysenv{home}."/.local/perl";
         symlink $sysenv{home}."/.local/perl", $sysenv{perlbase}
-            or die "failed to symlink $sysenv{home}/.local/perl to $sysenv{perlbase}: $!";
+            or croak "failed to symlink $sysenv{home}/.local/perl to $sysenv{perlbase}: $!";
     }
 
     #
@@ -350,7 +351,7 @@ sub collect_sysenv
     # collect uname info
     my $uname = $sysenv{uname};
     if (not defined $uname) {
-        die "error: can't find uname command to collect system information";
+        croak "error: can't find uname command to collect system information";
     }
     $sysenv{os} = capture_cmd($uname);
     $sysenv{kernel} = capture_cmd($uname, "-r");
@@ -361,14 +362,14 @@ sub collect_sysenv
         if (open my $fh, "<", "/etc/os-release") {
             while (<$fh>) {
                 chomp;
-                if (/^([A-Z0-9_]+)="(.*)"$/) {
+                if (/^([A-Z0-9_]+)="(.*)"$/x) {
                     $sysenv{$1} = $2;
-                } elsif (/^([A-Z0-9_]+)='(.*)'$/) {
+                } elsif (/^([A-Z0-9_]+)='(.*)'$/x) {
                     $sysenv{$1} = $2;
-                } elsif (/^([A-Z0-9_]+)=(.*)$/) {
+                } elsif (/^([A-Z0-9_]+)=(.*)$/x) {
                     $sysenv{$1} = $2;
                 } else {
-                    warn "warning: unable to parse line from /etc/os-release: $_";
+                    carp "warning: unable to parse line from /etc/os-release: $_";
                 }
             }
             close $fh;
@@ -400,6 +401,7 @@ sub collect_sysenv
             }
         }
     }
+    return;
 }
 
 # run an external command
@@ -597,7 +599,7 @@ sub manage_pkg
 {
     my %args = @_;
     if (not exists $args{op}) {
-        die "manage_pkg() requires op parameter";
+        croak "manage_pkg() requires op parameter";
     }
 
     # check if packager is implemented for currently-running system
@@ -625,7 +627,7 @@ sub manage_pkg
 
     # if a module parameter is present, add mod_parts parameter
     if (exists $args{module}) {
-        $args{mod_parts} = [split /::/, $args{module}];
+        $args{mod_parts} = [split /::/x, $args{module}];
     }
 
     # look up function which implements op for package type
@@ -690,7 +692,7 @@ sub bootstrap_cpanm
     # make build directory and change into it
     if (! -d "build") {
         mkdir "build"
-            or die "can't make build directory in current directory: $!";
+            or croak "can't make build directory in current directory: $!";
     }
     chdir "build";
 
@@ -702,18 +704,19 @@ sub bootstrap_cpanm
         }
     }
     if (scalar @missing > 0) {
-        die "missing ".(join ", ", @missing)." command - can't bootstrap cpanm";
+        croak "missing ".(join ", ", @missing)." command - can't bootstrap cpanm";
     }
 
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
-        or die "download failed for App::cpanminus";
+        or croak "download failed for App::cpanminus";
     my $cpanm_path = grep {qr(/bin/cpanm$)x} capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz));
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
     # change back up to previous directory
     chdir $old_pwd;
+    return;
 }
 
 # check if module is installed, and install it if not present
@@ -739,7 +742,7 @@ sub check_module
         # try again if it wasn't installed by a package
         if (not $done) {
             run_cmd($sysenv{cpan}, $name)
-                or die "failed to install $name module";
+                or croak "failed to install $name module";
             $modules_loaded{$name} = 1;
         }
     }
