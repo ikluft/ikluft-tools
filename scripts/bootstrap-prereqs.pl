@@ -268,7 +268,7 @@ sub set_user_env
     if (not exists $sysenv{perlbase}) {
         DIRLOOP: foreach my $dirpath ($sysenv{home}, $sysenv{home}."/lib", $sysenv{home}."/.local") {
             foreach my $perlname (qw(perl perl5)) {
-                if (-d $dirpath."/".$perlname and -w $dirpath."/".$perlname) {
+                if (-d "$dirpath/$perlname" and -w "$dirpath/$perlname") {
                     $sysenv{perlbase} = $dirpath."/".$perlname;
                     last DIRLOOP;
                 }
@@ -295,37 +295,44 @@ sub set_user_env
     #
     # set user environment variables similar to local::lib
     #
+    {
+        # allow environment variables to be set without "local" in this block - this updates them for child processes
+        ## no critic (Variables::RequireLocalizedPunctuationVars)
 
-    # update PATH
-    if (exists $ENV{PATH}) {
-        $ENV{PATH} = dedup_path($ENV{PATH}, $sysenv{perlbase}."/bin");
-    } else {
-        $ENV{PATH} = dedup_path("/usr/bin:/bin", $sysenv{perlbase}."/bin", "/usr/local/bin");
-    }
-    delete $sysenv{path_list}; # because we modified PATH: remove path cache and force it to be regenerated
-    delete $sysenv{path_flag}; # because we modified PATH: remove path cache flags and force it to be regenerated
+        # update PATH
+        if (exists $ENV{PATH}) {
+            $ENV{PATH} = dedup_path($ENV{PATH}, $sysenv{perlbase}."/bin");
+        } else {
+            $ENV{PATH} = dedup_path("/usr/bin:/bin", $sysenv{perlbase}."/bin", "/usr/local/bin");
+        }
+        delete $sysenv{path_list}; # because we modified PATH: remove path cache and force it to be regenerated
+        delete $sysenv{path_flag}; # because we modified PATH: remove path cache flags and force it to be regenerated
 
-    # update PERL5LIB
-    if (exists $ENV{PERL5LIB}) {
-        $ENV{PERL5LIB} = dedup_path($ENV{PERL5LIB}, $sysenv{perlbase}."/lib/perl5");
-    } else {
-        $ENV{PERL5LIB} = dedup_path(@INC, $sysenv{perlbase}."/lib/perl5");
-    }
+        # update PERL5LIB
+        if (exists $ENV{PERL5LIB}) {
+            $ENV{PERL5LIB} = dedup_path($ENV{PERL5LIB}, $sysenv{perlbase}."/lib/perl5");
+        } else {
+            $ENV{PERL5LIB} = dedup_path(@INC, $sysenv{perlbase}."/lib/perl5");
+        }
 
-    # update PERL_LOCAL_LIB_ROOT/PERL_MB_OPT/PERL_MM_OPT for local::lib
-    if (exists $ENV{PERL_LOCAL_LIB_ROOT}) {
-        $ENV{PERL_LOCAL_LIB_ROOT} = dedup_path($ENV{PERL_LOCAL_LIB_ROOT}, $sysenv{perlbase});
-    } else {
-        $ENV{PERL_LOCAL_LIB_ROOT} = $sysenv{perlbase};
-    }
-    $ENV{PERL_MB_OPT} = '--install_base "'.$sysenv{perlbase}.'"';
-    $ENV{PERL_MM_OPT} = 'INSTALL_BASE='.$sysenv{perlbase};
+        # update PERL_LOCAL_LIB_ROOT/PERL_MB_OPT/PERL_MM_OPT for local::lib
+        if (exists $ENV{PERL_LOCAL_LIB_ROOT}) {
+            $ENV{PERL_LOCAL_LIB_ROOT} = dedup_path($ENV{PERL_LOCAL_LIB_ROOT}, $sysenv{perlbase});
+        } else {
+            $ENV{PERL_LOCAL_LIB_ROOT} = $sysenv{perlbase};
+        }
+        {
+            ## no critic (Variables::RequireLocalizedPunctuationVars)
+            $ENV{PERL_MB_OPT} = '--install_base "'.$sysenv{perlbase}.'"';
+            $ENV{PERL_MM_OPT} = 'INSTALL_BASE='.$sysenv{perlbase};
+        }
 
-    # update MANPATH
-    if (exists $ENV{MANPATH}) {
-        $ENV{MANPATH} = dedup_path($ENV{MANPATH}, $sysenv{perlbase}."/man");
-    } else {
-        $ENV{MANPATH} = dedup_path("usr/share/man", $sysenv{perlbase}."/man", "/usr/local/share/man");
+        # update MANPATH
+        if (exists $ENV{MANPATH}) {
+            $ENV{MANPATH} = dedup_path($ENV{MANPATH}, $sysenv{perlbase}."/man");
+        } else {
+            $ENV{MANPATH} = dedup_path("usr/share/man", $sysenv{perlbase}."/man", "/usr/local/share/man");
+        }
     }
 
     # display updated environment variables
@@ -336,6 +343,7 @@ sub set_user_env
     }
     say '-' x 75;
     say '';
+    return;
 }
 
 # collect system environment info
@@ -359,6 +367,7 @@ sub collect_sysenv
 
     # if /etc/os-release exists (on most Linux systems), read it
     if (-f "/etc/os-release") {
+        ## no critic (InputOutput::RequireBriefOpen)
         if (open my $fh, "<", "/etc/os-release") {
             while (<$fh>) {
                 chomp;
