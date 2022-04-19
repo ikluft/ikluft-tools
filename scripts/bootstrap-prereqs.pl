@@ -470,8 +470,9 @@ sub pkg_modpkg_rpm
     return if not pkg_pkgcmd_rpm();
     #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort &capture_cmd(@querycmd, qw(--quiet --available --whatprovides),
+    my @pkglist = sort &capture_cmd(@querycmd, qw(--available --whatprovides),
         "'perl(".$args_ref->{module}.")'");
+    $debug and say STDERR "debug(pkg_modpkg_rpm): ".$args_ref->{module}." -> ".join(" ", @pkglist);
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -482,7 +483,7 @@ sub pkg_find_rpm
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort &capture_cmd(@querycmd, qw(--available --quiet), $args_ref->{pkg});
+    my @pkglist = sort &capture_cmd(@querycmd, qw(--available), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -505,7 +506,7 @@ sub pkg_install_rpm
 
     # install the packages
     my $pkgcmd = $sysenv{dnf} // $sysenv{yum};
-    return run_cmd($pkgcmd, "install", "--assumeyes", "--setopt=install_weak_deps=False ", @packages);
+    return run_cmd($pkgcmd, "install", "--assumeyes", "--setopt=install_weak_deps=false", @packages);
 }
 
 # check if packager command found (alpine)
