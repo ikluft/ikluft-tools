@@ -24,11 +24,10 @@ my @cpan_deps = (qw(curl make));
 
 # platform/package configuration
 my %platconf = (
-    # packaging system type
-    type => {
+    # platform packaging system type
+    packager => {
         fedora => "rpm",
-        rocky => "rpm",
-        almalinux => "rpm",
+        centos => "rpm", # CentOS no longer exists - matches via ID_LIKE for CentOS-derived systems (Rocky, Alma)
         debian => "deb",
         ubuntu => "deb",
         alpine => "apk",
@@ -58,8 +57,7 @@ my %platconf = (
     prereq => {
         alpine => [qw(perl-utils)],
         fedora => [qw(perl-CPAN)],
-        rocky => [qw(perl-CPAN)],
-        almalinux => [qw(perl-CPAN)],
+        centos => [qw(epel-release perl-CPAN)], # CentOS no longer exists - matches via ID_LIKE for CentOS-derived systems
         debian => [qw(perl-modules)],
         ubuntu => [qw(perl-modules)],
     },
@@ -71,14 +69,14 @@ my %sysenv;
 my %modules_loaded;
 
 # functions that query %pkg configuration
-sub plat_type
+sub plat_packager
 {
-    return $platconf{type}{$sysenv{ID}}; # undef intentionally returned if it doesn't exist
+    return $sysenv{packager}; # undef intentionally returned if it doesn't exist
 }
 sub pkg_override
 {
     my $pkg = shift;
-    return $platconf{override}{$sysenv{ID}}{$pkg}; # undef intentionally returned if it doesn't exist
+    return $platconf{override}{$sysenv{platform}}{$pkg}; # undef intentionally returned if it doesn't exist
 }
 sub pkg_skip
 {
@@ -87,7 +85,7 @@ sub pkg_skip
 }
 sub cpan_prereqs
 {
-    return (@cpan_deps, @{$platconf{prereq}{$sysenv{ID}} // []});
+    return (@cpan_deps, @{$platconf{prereq}{$sysenv{platform}} // []});
 }
 
 # determine if a Perl module is installed
@@ -356,16 +354,9 @@ sub set_user_env
     return;
 }
 
-# collect system environment info
-sub collect_sysenv
+# collect info and deduce platform type
+sub resolve_platform
 {
-    # find command locations
-    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk brew)) {
-        if (my $filepath = cmd_path($cmd)) {
-            $sysenv{$cmd} = $filepath;
-        }
-    }
-
     # collect uname info
     my $uname = $sysenv{uname};
     if (not defined $uname) {
@@ -376,16 +367,17 @@ sub collect_sysenv
     $sysenv{machine} = capture_cmd($uname, "-m");
 
     # if /etc/os-release exists (on most Linux systems), read it
+    # os-release is defined at https://www.freedesktop.org/software/systemd/man/os-release.html
     if (-f "/etc/os-release") {
         ## no critic (InputOutput::RequireBriefOpen)
         if (open my $fh, "<", "/etc/os-release") {
             while (<$fh>) {
                 chomp;
-                if (/^([A-Z0-9_]+)="(.*)"$/x) {
+                if (/^ ([A-Z0-9_]+) = "(.*)" $/x) {
                     $sysenv{$1} = $2;
-                } elsif (/^([A-Z0-9_]+)='(.*)'$/x) {
+                } elsif (/^ ([A-Z0-9_]+) = '(.*)' $/x) {
                     $sysenv{$1} = $2;
-                } elsif (/^([A-Z0-9_]+)=(.*)$/x) {
+                } elsif (/^ ([A-Z0-9_]+) = (.*) $/x) {
                     $sysenv{$1} = $2;
                 } else {
                     carp "warning: unable to parse line from /etc/os-release: $_";
@@ -394,6 +386,45 @@ sub collect_sysenv
             close $fh;
         }
     }
+
+    # if system ID was set and is recognized, use it
+    if (exists $sysenv{ID} and exists $platconf{packager}{$sysenv{ID}}) {
+        $sysenv{platform} = $sysenv{ID};
+        $sysenv{packager} = $platconf{packager}{$sysenv{ID}};
+        say text_green()."system detected: $sysenv{platform}/$sysenv{packager}".text_color_reset();
+        return;
+    }
+
+    # utilize ID_LIKE if available to determine platform type
+    if (exists $sysenv{ID_LIKE}) {
+        $sysenv{ID_LIKE} =~ s/^\s+//x; # remove leading whitespace
+        $sysenv{ID_LIKE} =~ s/\s+$//x; # remove trailing whitespace
+        my @os_like = split /\s+/x, $sysenv{ID_LIKE};
+        foreach my $os_like (@os_like) {
+            if (exists $platconf{packager}{$os_like}) {
+                $sysenv{platform} = $os_like;
+                $sysenv{packager} = $platconf{packager}{$os_like};
+                say text_green()."system detected: $sysenv{ID} -> $sysenv{platform}/$sysenv{packager}"
+                    .text_color_reset();
+                last;
+            }
+        }
+    }
+    return;
+}
+
+# collect system environment info
+sub collect_sysenv
+{
+    # find command locations
+    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk brew)) {
+        if (my $filepath = cmd_path($cmd)) {
+            $sysenv{$cmd} = $filepath;
+        }
+    }
+
+    # collect info and deduce platform type
+    resolve_platform();
 
     # check if user is root
     if ($> == 0) {
@@ -629,11 +660,11 @@ sub manage_pkg
     # check if packager is implemented for currently-running system
     if ($args{op} eq "implemented") {
         if ($sysenv{os} eq "Linux") {
-            if (not exists $sysenv{ID}) {
+            if (not exists $sysenv{platform}) {
                 # for Linux packagers, we need ID to tell distros apart - all modern distros should provide one
                 return;
             }
-            if (not plat_type()) {
+            if (not defined plat_packager()) {
                 # it gets here on Linux distros which we don't have a packager implementation
                 return;
             }
@@ -655,7 +686,7 @@ sub manage_pkg
     }
 
     # look up function which implements op for package type
-    my $funcname = join("_", "pkg", $args{op}, plat_type());
+    my $funcname = join("_", "pkg", $args{op}, plat_packager());
     $debug and say STDERR "debug: $funcname(".join(" ", map {$_."=".$args{$_}} sort keys %args).")";
     my $funcref = __PACKAGE__->can($funcname);
     if (not defined $funcref) {
@@ -702,7 +733,7 @@ sub module_package
     my $pkgname = manage_pkg(op => "modpkg", module => $module);
     return 0 if (not defined $pkgname) or length($pkgname) == 0;
     say '';
-    say text_green()."install $sysenv{ID} package $pkgname for $module".text_color_reset();
+    say text_green()."install $sysenv{packager} package $pkgname for $module".text_color_reset();
 
     return manage_pkg(op => "install", pkg => $pkgname);
 }
