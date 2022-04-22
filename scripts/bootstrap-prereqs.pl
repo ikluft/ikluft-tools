@@ -42,6 +42,11 @@ my %platconf = (
         ubuntu => {
             "libapp-cpanminus-perl" => "cpanminus",
         },
+        arch => {
+            "perl-app-cpanminus" => "cpanminus",
+            "tar" => "core/tar",
+            "curl" => "core/curl",
+        },
     },
 
     # built-in modules/pragmas to skip processing as dependencies
@@ -417,7 +422,7 @@ sub resolve_platform
 sub collect_sysenv
 {
     # find command locations
-    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk brew)) {
+    foreach my $cmd (qw(uname curl tar cpan cpanm rpm yum repoquery dnf apt apk pacman brew)) {
         if (my $filepath = cmd_path($cmd)) {
             $sysenv{$cmd} = $filepath;
         }
@@ -640,6 +645,60 @@ sub pkg_install_deb
     return run_cmd($pkgcmd, "install", "--yes", @packages);
 }
 
+# check if packager command found (arch)
+sub pkg_pkgcmd_pacman
+{
+    return (exists $sysenv{pacman} ? 1 : 0);
+}
+
+# find name of package for Perl module (arch)
+sub pkg_modpkg_pacman
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_pacman();
+    my $pkgname = join("-", "perl", map {lc $_} @{$args_ref->{mod_parts}}); # arch format for Perl module packages
+    $args_ref->{pkg} = $pkgname;
+    if (not pkg_find_pacman($args_ref)) {
+        return;
+    }
+
+    # package was found - return the simpler name since pkg add won't take this full string
+    return $pkgname;
+}
+
+# find named package in repository (arch)
+sub pkg_find_pacman
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_pacman();
+    my $querycmd = $sysenv{pacman};
+    my @pkglist = sort map {substr($_,0,index($_," "))}
+        (capture_cmd($querycmd, qw(--sync --search --quiet), $args_ref->{pkg}));
+    return if not scalar @pkglist; # empty list means nothing found
+    return $pkglist[-1]; # last of sorted list should be most recent version
+}
+
+# install package (arch)
+sub pkg_install_pacman
+{
+    my $args_ref = shift;
+    return if not pkg_pkgcmd_pacman();
+
+    # determine packages to install
+    my @packages;
+    if (exists $args_ref->{pkg}) {
+        if (ref $args_ref->{pkg} eq "ARRAY") {
+            push @packages, @{$args_ref->{pkg}};
+        } else {
+            push @packages, $args_ref->{pkg};
+    }
+        }
+
+    # install the packages
+    my $pkgcmd = $sysenv{pacman};
+    return run_cmd($pkgcmd, "--sync", @packages);
+}
+
 # handle various systems' packagers
 # op parameter is a string:
 #   implemented: 1 if packager implemented for this system, otherwise undef
@@ -765,7 +824,7 @@ sub bootstrap_cpanm
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
         or croak "download failed for App::cpanminus";
-    my $cpanm_path = grep {qr(/bin/cpanm$)x} (capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz)));
+    my $cpanm_path = (grep {qr(/bin/cpanm$)x} (capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz))));
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
