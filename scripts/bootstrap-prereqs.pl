@@ -129,10 +129,21 @@ sub module_installed
 
 
 # run an external command and capture its standard output
+# optional \%args in first parameter
+#   carp_errors - carp full details in case of errors
+#   list - return an array of result lines
 sub capture_cmd
 {
     my @cmd = @_;
     $debug and say STDERR "debug(capture_cmd): ".join(" ", @cmd);
+
+    # get optional arguments if first element of @cmd is a hashref
+    my %args;
+    if (ref $cmd[0] eq "HASH") {
+        %args = %{shift @cmd};
+    }
+
+    # capture output
     my @output;
     my $cmd = join( " ", @cmd);
 
@@ -148,9 +159,20 @@ sub capture_cmd
         close $fh
             or carp "failed to close pipe for command '$cmd': $!";;
     }
+
+    # detect and handle errors
     if ($? != 0) {
-        carp "exit status $? from command '$cmd'";
+        # for some commands displaying errors are unnecessary - carp errors if requested
+        if ($args{carp_errors} // 0) {
+            carp "exit status $? from command '$cmd'";
+        }
         return;
+    }
+
+    # return results
+    if ($args{list} // 0) {
+        # return an array if list option set
+        return @output;
     }
     return wantarray ? @output : join("\n", @output);
 }
@@ -520,7 +542,7 @@ sub pkg_modpkg_rpm
     return if not pkg_pkgcmd_rpm();
     #return join("-", "perl", @{$args_ref->{mod_parts}}); # rpm format for Perl module packages
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort &capture_cmd(@querycmd, qw(--available --whatprovides),
+    my @pkglist = sort &capture_cmd({list=>1}, @querycmd, qw(--available --whatprovides),
         "'perl(".$args_ref->{module}.")'");
     $debug and say STDERR "debug(pkg_modpkg_rpm): ".$args_ref->{module}." -> ".join(" ", @pkglist);
     return if not scalar @pkglist; # empty list means nothing found
@@ -533,7 +555,7 @@ sub pkg_find_rpm
     my $args_ref = shift;
     return if not pkg_pkgcmd_rpm();
     my @querycmd = ((exists $sysenv{dnf}) ? ($sysenv{dnf}, "repoquery") : $sysenv{repoquery});
-    my @pkglist = sort &capture_cmd(@querycmd, qw(--available), $args_ref->{pkg});
+    my @pkglist = sort &capture_cmd({list=>1}, @querycmd, qw(--available), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -587,7 +609,7 @@ sub pkg_find_apk
     return if not pkg_pkgcmd_apk();
     my $querycmd = $sysenv{apk};
     my @pkglist = sort map {substr($_,0,index($_," "))}
-        (capture_cmd($querycmd, qw(list --available --quiet), $args_ref->{pkg}));
+        (capture_cmd({list=>1}, $querycmd, qw(list --available --quiet), $args_ref->{pkg}));
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -633,7 +655,7 @@ sub pkg_find_deb
     my $args_ref = shift;
     return if not pkg_pkgcmd_deb();
     my $querycmd = $sysenv{apt};
-    my @pkglist = sort &capture_cmd($querycmd, qw(list --all-versions), $args_ref->{pkg});
+    my @pkglist = sort &capture_cmd({list=>1}, $querycmd, qw(list --all-versions), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -686,7 +708,7 @@ sub pkg_find_pacman
     my $args_ref = shift;
     return if not pkg_pkgcmd_pacman();
     my $querycmd = $sysenv{pacman};
-    my @pkglist = sort (capture_cmd($querycmd, qw(--sync --search --quiet), $args_ref->{pkg}));
+    my @pkglist = sort &capture_cmd({list=>1}, $querycmd, qw(--sync --search --quiet), $args_ref->{pkg});
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -709,7 +731,7 @@ sub pkg_install_pacman
 
     # install the packages
     my $pkgcmd = $sysenv{pacman};
-    return run_cmd($pkgcmd, "--sync", @packages);
+    return run_cmd($pkgcmd, "--sync", "--needed", "--noconfirm", @packages);
 }
 
 # handle various systems' packagers
@@ -837,7 +859,7 @@ sub bootstrap_cpanm
     # download cpanm
     run_cmd($sysenv{curl}, "-L", "--output", "app-cpanminus.tar.gz", $sources{"App::cpanminus"})
         or croak "download failed for App::cpanminus";
-    my $cpanm_path = (grep {qr(/bin/cpanm$)x} (capture_cmd($sysenv{tar}, qw(-tf app-cpanminus.tar.gz))));
+    my $cpanm_path = (grep {qr(/bin/cpanm$)x} (capture_cmd({list=>1}, $sysenv{tar}, qw(-tf app-cpanminus.tar.gz))));
     run_cmd($sysenv{tar}, "-xf", "app-cpanminus.tar.gz", $cpanm_path);
     $sysenv{cpanm} = pwd()."/".$cpanm_path;
 
