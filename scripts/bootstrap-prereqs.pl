@@ -66,6 +66,12 @@ my %platconf = (
         debian => [qw(perl-modules)],
         ubuntu => [qw(perl-modules)],
     },
+
+    # augment command search path on some systems
+    # entries may be scalar or array
+    cmd_path => {
+        arch => [qw(/usr/bin/core_perl /usr/bin/vendor_perl /usr/bin/site_perl)],
+    },
 );
 
 # globals (read/write)
@@ -77,6 +83,14 @@ my %modules_loaded;
 sub plat_packager
 {
     return $sysenv{packager}; # undef intentionally returned if it doesn't exist
+}
+sub plat_cmd_path
+{
+    return () if not exists $platconf{cmd_path}{$sysenv{platform}};
+    if (ref $platconf{cmd_path}{$sysenv{platform}} eq "ARRAY") {
+        return @{$platconf{cmd_path}{$sysenv{platform}}};
+    }
+    return $platconf{cmd_path}{$sysenv{platform}};
 }
 sub pkg_override
 {
@@ -158,7 +172,7 @@ sub cmd_path
     if (not exists $sysenv{path_list} or not exists $sysenv{path_flag}) {
         $sysenv{path_list} = [split /:/x, $ENV{PATH}];
         $sysenv{path_flag} = {map { ($_ => 1) } @{$sysenv{path_list}}};
-        foreach my $dir (qw(/bin /usr/bin /sbin /usr/sbin /opt/bin /usr/local/bin)) {
+        foreach my $dir (qw(/bin /usr/bin /sbin /usr/sbin /opt/bin /usr/local/bin), plat_cmd_path()) {
             -d $dir or next;
             if (not exists $sysenv{path_flag}{$dir}) {
                 push @{$sysenv{path_list}}, $dir;
@@ -672,8 +686,7 @@ sub pkg_find_pacman
     my $args_ref = shift;
     return if not pkg_pkgcmd_pacman();
     my $querycmd = $sysenv{pacman};
-    my @pkglist = sort map {substr($_,0,index($_," "))}
-        (capture_cmd($querycmd, qw(--sync --search --quiet), $args_ref->{pkg}));
+    my @pkglist = sort (capture_cmd($querycmd, qw(--sync --search --quiet), $args_ref->{pkg}));
     return if not scalar @pkglist; # empty list means nothing found
     return $pkglist[-1]; # last of sorted list should be most recent version
 }
@@ -855,7 +868,7 @@ sub check_module
 
         # try again if it wasn't installed by a package
         if (not $done) {
-            run_cmd($sysenv{cpan}, $name)
+            run_cmd($sysenv{cpan} // $sysenv{cpanm}, $name)
                 or croak "failed to install $name module";
             $modules_loaded{$name} = 1;
         }
