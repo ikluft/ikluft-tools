@@ -14,10 +14,11 @@ use autodie;
 use feature qw(say);
 use Carp qw(carp croak);
 use Data::Dumper;
+use Sys::OsRelease;
 
 # system environment (read only)
 my %sources = (
-    "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7045.tar.gz',
+    "App::cpanminus" => 'https://cpan.metacpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7046.tar.gz',
 );
 my @module_deps = qw(Term::ANSIColor Perl::PrereqScanner::NotQuiteLite HTTP::Tiny);
 my @cpan_deps = (qw(curl make));
@@ -407,50 +408,31 @@ sub resolve_platform
     $sysenv{kernel} = capture_cmd($uname, "-r");
     $sysenv{machine} = capture_cmd($uname, "-m");
 
-    # if /etc/os-release exists (on most Linux systems), read it
-    # os-release is defined at https://www.freedesktop.org/software/systemd/man/os-release.html
-    if (-f "/etc/os-release") {
-        ## no critic (InputOutput::RequireBriefOpen)
-        if (open my $fh, "<", "/etc/os-release") {
-            while (<$fh>) {
-                chomp;
-                if (/^ ([A-Z0-9_]+) = "(.*)" $/x) {
-                    $sysenv{$1} = $2;
-                } elsif (/^ ([A-Z0-9_]+) = '(.*)' $/x) {
-                    $sysenv{$1} = $2;
-                } elsif (/^ ([A-Z0-9_]+) = (.*) $/x) {
-                    $sysenv{$1} = $2;
-                } else {
-                    carp "warning: unable to parse line from /etc/os-release: $_";
-                }
-            }
-            close $fh;
-        }
+    # initialize Sys::OsRelease
+    my $osrelease = Sys::OsRelease->instance(common_id => [qw(centos)]); # add CentOS to recognized common platforms
+    $sysenv{platform} = $osrelease->platform();
+
+    # determine system's packager if possible
+    if (exists $platconf{packager}{$sysenv{platform}}) {
+        $sysenv{packager} = $platconf{packager}{$sysenv{platform}};
     }
 
-    # if system ID was set and is recognized, use it
-    if (exists $sysenv{ID} and exists $platconf{packager}{$sysenv{ID}}) {
-        $sysenv{platform} = $sysenv{ID};
-        $sysenv{packager} = $platconf{packager}{$sysenv{ID}};
-        say text_green()."system detected: $sysenv{platform}/$sysenv{packager}".text_color_reset();
-        return;
-    }
-
-    # utilize ID_LIKE if available to determine platform type
-    if (exists $sysenv{ID_LIKE}) {
-        $sysenv{ID_LIKE} =~ s/^\s+//x; # remove leading whitespace
-        $sysenv{ID_LIKE} =~ s/\s+$//x; # remove trailing whitespace
-        my @os_like = split /\s+/x, $sysenv{ID_LIKE};
-        foreach my $os_like (@os_like) {
-            if (exists $platconf{packager}{$os_like}) {
-                $sysenv{platform} = $os_like;
-                $sysenv{packager} = $platconf{packager}{$os_like};
-                say text_green()."system detected: $sysenv{ID} -> $sysenv{platform}/$sysenv{packager}"
-                    .text_color_reset();
-                last;
-            }
+    # display system info
+    my $detected;
+    if (defined $osrelease->osrelease_path()) {
+        if ($sysenv{platform} eq $osrelease->id()) {
+            $detected = $sysenv{platform};
+        } else {
+            $detected = $osrelease->id()." -> ".$sysenv{platform};
         }
+        if (exists $sysenv{packager}) {
+            $detected .= "/$sysenv{packager}";
+        }
+
+    } else {
+        $detected = "$sysenv{platform} (no os-release data)";
     }
+    say text_green()."system detected: $detected".text_color_reset();
     return;
 }
 
@@ -519,7 +501,7 @@ sub run_cmd
         }
     }
 
-    # it only gets here if it succeeded
+    # it gets here if it succeeded
     return 1;
 }
 
