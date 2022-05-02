@@ -15,7 +15,13 @@ This directory contains miscellaneous helpful scripts I've written.
 
 Scripts moved to other GitHub repos:
 
-- bootstrap-prereqs.pl has been moved to [Sys::OsPackage](https://github.com/ikluft/Sys-OsPackage). It was started here as a script to install dependencies for a Perl script, with preference for installing OS packages: RPM on Fedora/RedHat/CentOS Linux, APK on Alpine Linux, and DEB on Debian/Ubuntu Linux. If an OS package isn't found or the user isn't root, then CPAN is used to build and install the packages. For local users the packages are installed in a subdirectory of their home directory. One use case is for setting up containers.
+- bootstrap-prereqs.pl has been moved mostly to [Sys::OsPackage](https://github.com/ikluft/Sys-OsPackage),
+  except for the part that read /etc/os-release which became [Sys::OsRelease](https://github.com/ikluft/Sys-OsRelease).
+  It was started here as a script to install dependencies for a Perl script, with preference for installing
+  OS packages: RPM on Fedora/RedHat/CentOS Linux, APK on Alpine Linux, and DEB on Debian/Ubuntu Linux. If an
+  OS package isn't found or the user isn't root, then CPAN is used to build and install the packages. For
+  local users the packages are installed in a subdirectory of their home directory. One use case is for
+  setting up containers.
 
 - *ical-isc2sv-mtg.pl* generates a QR code with an ICal event. I made this for
   monthly ISC² Silicon Valley Chapter meetings. But by filling in the
