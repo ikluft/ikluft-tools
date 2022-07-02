@@ -76,6 +76,8 @@ sub init
 # shortcut function to top-level WebFetch object data
 sub data { return $_[0]->{obj}; }
 
+=over 4
+
 =item $value = $obj->bynum( $field_num );
 
 Returns the value of the field located by the field number provided.
@@ -173,6 +175,8 @@ well-known names as they are defined.
 
 So a field named "title" can be accessed by an object method of the same
 name, like $obj->title .
+
+=back
 
 =cut
 

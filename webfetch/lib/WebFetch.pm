@@ -938,8 +938,6 @@ stores a savable representation of the string.
 
 =back
 
-=back
-
 Additional valid keys may be created by modules that inherit from WebFetch
 by supplying a method/function named with "fmt_handler_" preceding the
 string used for the key.
@@ -1555,6 +1553,8 @@ cooperating with each other.  So WebFetch provides AUTOLOAD functionality
 to catch undefined function calls for its subclasses.  If the calling 
 class provides a function by the name that was attempted, then it will
 be redirected there.
+
+=back
 
 =cut
 

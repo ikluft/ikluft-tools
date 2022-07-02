@@ -55,10 +55,14 @@ C<perl -w -MWebFetch::Output::TT -e "&fetch_main" --
 
 This module saves output via the Perl Template Toolkit.
 
+=over 4
+
 =item $obj->fmt_handler_tt( $filename )
 
 This function formats the data according to the Perl Template Toolkit
 template provided in the --template parameter.
+
+=back
 
 =cut
 

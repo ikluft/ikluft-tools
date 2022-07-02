@@ -81,6 +81,8 @@ sub init
 	return $self;
 }
 
+=over 4
+
 =item $obj->add_fields( "field1", "field2", ... );
 
 Add the field names in the order their values will appear in the data table.
@@ -331,6 +333,8 @@ sub fname2fnum
 =item $obj->wk2fnum( $wk )
 
 Obtain a field number from a well-known name.
+
+=back
 
 =cut
 

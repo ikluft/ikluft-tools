@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More skip_all => "no pod files";
+use Test::More;
 
 # Ensure a recent version of Test::Pod
 my $min_tp = 1.22;

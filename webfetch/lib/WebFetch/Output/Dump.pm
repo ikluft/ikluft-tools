@@ -57,10 +57,14 @@ This is an output module for WebFetch which simply outputs a Perl
 structure dump from C<Data::Dumper>.  It can be read again by a Perl
 script using C<eval>.
 
+=over 4
+
 =item $obj->fmt_handler_dump( $filename )
 
 This function dumps the data into a string for saving by the WebFetch::save()
 function.
+
+=back
 
 =cut
 

@@ -114,7 +114,8 @@ any feeds you want to configure.  The "Key" field matches the --config_key
 command-line parameter, and then brings in the rest of the configuration
 info from that line.  An example is shown below.
 
-=over
+=over 4
+
 C<< ---+ !WebFetch Configuration >>
 
 C<< The following table is used by !WebFetch to configure news feeds >>
@@ -126,6 +127,7 @@ C<< | ikluft-twitter | Feeds | TwitterIkluftFeed | TwitterIkluft | AtomFeedTempl
 C<< | twiki-twitter | Feeds | TwitterTwikiFeed | TwitterTwiki | AtomFeedTemplate | AtomFeedForm | separate_topics | Atom | http://search.twitter.com/search.atom?q=%23twiki | >>
 C<< | cnn | Feeds | RssCnn | RssCnn | RssFeedTemplate | RssFeedForm | separate_topics | RSS | http://rss.cnn.com/rss/cnn_topstories.rss | >>
 C<< %STOPINCLUDE% >>
+
 =back
 
 The C<%STARTINCLUDE%> and C<%STOPINCLUDE%> are not required.  However, if
@@ -506,6 +508,18 @@ sub fmt_handler_twiki
 	$self->no_savables_ok;
         1;
 }
+
+=head1 METHODS
+
+=over 4
+
+=item fmt_handler_twiki
+=item get_twiki_config
+=item write_to_twiki
+=item write_to_twiki_metadata
+=item write_to_twiki_topics
+
+=back
 
 =head1 TWiki software
 
