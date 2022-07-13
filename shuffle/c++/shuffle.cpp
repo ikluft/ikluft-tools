@@ -50,4 +50,6 @@ int main(const int argc, const char **argv)
     for (auto item: lines) {
         std::cout << item << std::endl;
     }
+
+    return 0;
 }
