@@ -1,0 +1,30 @@
+#!/bin/sh
+# makelog - run make with output to a log file in the current directory
+# Copyright (c) 1991-2022 by Ian Kluft
+# Redistribution permitted by the author under the conditions of the
+# GNU General Public License Version 3.
+#    https://opensource.org/licenses/GPL-3.0
+
+max_log=20
+log_name="mk.out"
+suffix="old"
+
+shift_logs()
+{
+	num=$max_log
+	while [ "$num" -gt 0 ]
+	do
+		next=`expr $num - 1`
+		[ -f "$log_name.$suffix$next" ] && \
+			mv -f "$log_name.$suffix$next" "$log_name.$suffix$num"
+		num=$next
+	done
+}
+
+#[ -f mk.out ] && mv -f mk.out Omk.out
+if [ -f mk.out ]
+then
+	shift_logs
+	mv -f mk.out "$log_name.$suffix"1
+fi
+( echo "make $@"; time make "$@" ) 2>&1 | tee mk.out
