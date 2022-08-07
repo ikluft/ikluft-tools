@@ -37,8 +37,6 @@ fn main() -> io::Result<()> {
     }
     let infile_path = Path::new(&args[1]);
 
-    println!("{:?}", infile_path);
-
     // read input file to vector
     let mut lines = read_file_lines(&infile_path);
 
