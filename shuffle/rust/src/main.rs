@@ -1,27 +1,29 @@
 // shuffle lines of text from an input file
 // by Ian Kluft
 
+use rand::{seq::SliceRandom, thread_rng};
 use std::{
     env,
-    iter::Iterator,
+    fs::File,
     io,
     io::{BufRead, BufReader},
+    iter::Iterator,
     path::Path,
-    fs::File,
-};
-use rand::{
-    seq::SliceRandom,
-    thread_rng,
 };
 
 // read a file into a vector of strings
 fn read_file_lines(infile_path: &Path) -> Vec<String> {
     let infile = match File::open(&infile_path) {
-        Err(why) => panic!("could not open input file {}: {}", infile_path.display(), why),
-		Ok(f) => f,
+        Err(why) => panic!(
+            "could not open input file {}: {}",
+            infile_path.display(),
+            why
+        ),
+        Ok(f) => f,
     };
     let reader = BufReader::new(infile);
-    reader.lines()
+    reader
+        .lines()
         .filter_map(io::Result::ok)
         .collect::<Vec<String>>()
 }
