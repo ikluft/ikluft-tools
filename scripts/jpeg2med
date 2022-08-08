@@ -1,0 +1,11 @@
+#!/bin/sh
+
+for i in $*
+do
+	infile=$i
+	outfile=`basename $i .jpg`-med.jpg
+
+	echo "converting $infile to $outfile..."
+	djpeg -pnm $infile | pnmcrop | pnmscale -xsize ${MED_SIZE:-500} | cjpeg -quality 75 > $outfile
+	echo
+done

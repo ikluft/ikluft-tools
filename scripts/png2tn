@@ -1,0 +1,11 @@
+#!/bin/sh
+
+for i in $*
+do
+	infile=$i
+	outfile=`basename $i .png`-tn.png
+
+	echo "converting $infile to $outfile..."
+	pngtopnm $infile | pnmcrop | pnmscale -ysize 100 | pnmtopng -compression 9 > $outfile
+	echo
+done
