@@ -12,6 +12,9 @@ This directory contains miscellaneous helpful scripts I've written.
   can just run it as "gimp" with any usual command line arguments passed along
   to it. And similar functions/aliases will be made for all Flatpak apps
   installed on the system.
+- *[makelog](makelog)* is a script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
+- *[rot13](rot13)* is a trivial cypher program which rotates the letters 13 positions across the alphabet, so that it is also its own decryption method. This was originated in Internet tradition since the days of UseNet as a trivially-silly cypher which was built into many UseNet reader programs. But it actually dates back to Ancient Rome.
+- *[timestamp-str](timestamp-str)* prints a timestamp string from the current time in YYYYMMDDHHMM format. It can be used for creating files with the creation time in their name.
 
 Scripts moved to other GitHub repos:
 

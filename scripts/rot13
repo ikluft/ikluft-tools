@@ -1,0 +1,8 @@
+#!/bin/sh
+
+case `basename $0` in
+rot13) tr '[a-zA-Z]' '[n-za-mN-ZA-M]' ;;
+unrotmp) tr '[f-za-eF-ZA-E]' '[a-zA-Z]' ;;
+rotmp) tr '[a-zA-Z]' '[f-za-eF-ZA-E]' ;;
+*) echo "$0: unrecognized name"; exit 1 ;;
+esac
