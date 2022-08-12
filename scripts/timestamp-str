@@ -1,3 +1,9 @@
 #!/bin/sh
-
-/bin/date '+%Y%m%d%H%M'
+# timestamp-str - print a time & date stamp for use in naming files by their creation time
+# or alternatively symlinked as datestamp-str for just the date
+if [ $(basename $0) = "datestamp-str" ]
+then
+    /bin/date '+%Y-%m-%d'
+else
+    /bin/date '+%Y-%m-%d-%H-%M-%S'
+fi
