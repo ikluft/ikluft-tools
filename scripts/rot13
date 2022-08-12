@@ -1,8 +1,16 @@
 #!/bin/sh
+# rot13 - trivial cipher rotating by 13 places, see https://en.wikipedia.org/wiki/ROT13
+# Copyright (c) 1996-2022 by Ian Kluft
+# Redistribution permitted by the author under the conditions of the
+# GNU General Public License Version 3.
+#    https://opensource.org/licenses/GPL-3.0
+#
+# ROT13 is symmetrically both encryption and decryption since 13 places is half of the 26-letter the Latin alphabet.
+# This program can also be symlinked by the names rotmp and unrotmp for an alternative which is asymmetric.
 
-case `basename $0` in
-rot13) tr '[a-zA-Z]' '[n-za-mN-ZA-M]' ;;
-unrotmp) tr '[f-za-eF-ZA-E]' '[a-zA-Z]' ;;
-rotmp) tr '[a-zA-Z]' '[f-za-eF-ZA-E]' ;;
-*) echo "$0: unrecognized name"; exit 1 ;;
+case $(basename $0) in
+    rot13|ROT13) tr '[a-zA-Z]' '[n-za-mN-ZA-M]' ;;
+    unrotmp) tr '[f-za-eF-ZA-E]' '[a-zA-Z]' ;;
+    rotmp) tr '[a-zA-Z]' '[f-za-eF-ZA-E]' ;;
+    *) echo "$0: unrecognized name"; exit 1 ;;
 esac

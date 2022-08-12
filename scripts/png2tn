@@ -1,4 +1,12 @@
 #!/bin/sh
+# png2tn - scale down PNG image to a thumbnail image
+# Copyright (c) 1996-2022 by Ian Kluft
+# Redistribution permitted by the author under the conditions of the
+# GNU General Public License Version 3.
+#    https://opensource.org/licenses/GPL-3.0
+#
+# usage: png2tn file [file ...]
+# copies and scales down PNG images to 100 pixel high thumbnails at the same aspect ratio
 
 for i in $*
 do
