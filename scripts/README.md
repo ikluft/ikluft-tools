@@ -22,6 +22,8 @@ This directory contains miscellaneous helpful scripts I've written.
   - language: Unix shell🐚
 - *[timestamp-str](timestamp-str)* prints a timestamp string from the current time in YYYYMMDDHHMM format. It can be used for creating files with the creation time in their name.
   - language: Unix shell🐚
+- *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
+  - dependencies: [perltidy](https://metacpan.org/dist/Perl-Tidy/view/bin/perltidy)
 
 Scripts moved to other GitHub repos:
 

@@ -1,0 +1,6 @@
+--cuddled-else
+--maximum-line-length=100
+--utf8
+--output-line-ending=unix
+--continuation-indentation=4
+--opening-sub-brace-on-new-line

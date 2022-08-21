@@ -16,4 +16,4 @@ use utf8;
 use List::Util qw(shuffle);
 
 # shuffle the list
-print shuffle ( <> );
+print shuffle (<>);
