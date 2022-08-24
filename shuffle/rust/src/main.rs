@@ -10,7 +10,6 @@
 //
 // usage: shuffle input.txt > output.txt
 
-
 use rand::{seq::SliceRandom, thread_rng};
 use std::{
     env::args,
@@ -19,8 +18,8 @@ use std::{
     io::{BufRead, BufReader},
     iter::Iterator,
     path::Path,
-    result::Result,
     process::ExitCode,
+    result::Result,
 };
 
 // read a file into a vector of strings
@@ -48,7 +47,7 @@ fn main() -> ExitCode {
         Err(why) => {
             eprintln!("file read failed: {}", why);
             return ExitCode::FAILURE;
-        },
+        }
         Ok(vecstr) => vecstr,
     };
 
