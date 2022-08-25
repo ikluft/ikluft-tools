@@ -23,8 +23,12 @@ use std::{
 
 // read a file into a vector of strings
 fn read_file_lines(infile_path: &Path) -> Result<Vec<String>, anyhow::Error> {
-    let infile = File::open(&infile_path)
-        .with_context(|| format!("Failed to read instrs from {}", infile_path.to_string_lossy()))?;
+    let infile = File::open(&infile_path).with_context(|| {
+        format!(
+            "Failed to read instrs from {}",
+            infile_path.to_string_lossy()
+        )
+    })?;
     let reader = BufReader::new(infile);
     Ok(reader
         .lines()
