@@ -10,6 +10,7 @@
 //
 // usage: shuffle input.txt > output.txt
 
+use anyhow::{anyhow, Context, Result};
 use rand::{seq::SliceRandom, thread_rng};
 use std::{
     env::args,
@@ -18,13 +19,12 @@ use std::{
     io::{BufRead, BufReader},
     iter::Iterator,
     path::Path,
-    process::ExitCode,
-    result::Result,
 };
 
 // read a file into a vector of strings
-fn read_file_lines(infile_path: &Path) -> Result<Vec<String>, io::Error> {
-    let infile = File::open(&infile_path)?;
+fn read_file_lines(infile_path: &Path) -> Result<Vec<String>, anyhow::Error> {
+    let infile = File::open(&infile_path)
+        .with_context(|| format!("Failed to read instrs from {}", infile_path.to_string_lossy()))?;
     let reader = BufReader::new(infile);
     Ok(reader
         .lines()
@@ -33,23 +33,16 @@ fn read_file_lines(infile_path: &Path) -> Result<Vec<String>, io::Error> {
 }
 
 // mainline - read file, shuffle it, output it
-fn main() -> ExitCode {
+fn main() -> Result<()> {
     // get input file name from command line
     let args: Vec<String> = args().collect();
     if args.len() < 2 {
-        eprintln!("file name parameter missing");
-        return ExitCode::FAILURE;
+        return Err(anyhow!("file name parameter missing"));
     }
     let infile_path = Path::new(&args[1]);
 
     // read input file to vector
-    let mut lines = match read_file_lines(&infile_path) {
-        Err(why) => {
-            eprintln!("file read failed: {}", why);
-            return ExitCode::FAILURE;
-        }
-        Ok(vecstr) => vecstr,
-    };
+    let mut lines = read_file_lines(&infile_path)?;
 
     // shuffle vector
     let mut rng = thread_rng();
@@ -61,5 +54,5 @@ fn main() -> ExitCode {
     }
 
     // done
-    ExitCode::SUCCESS
+    Ok(())
 }
