@@ -76,9 +76,11 @@ run_cpp()
     echo "run C++"
     infile="$1"
     outfile="$2"
-    ( cd $dir/cpp; make ) \
-        && ( $dir/cpp/shuffle $infile > $outfile )
-    printf "%03d %6s %s\n" $count "C++" $outfile >> $keyfile
+    if ( cd $dir/cpp && make )
+    then
+        $dir/cpp/shuffle $infile > $outfile
+        printf "%03d %6s %s\n" $count "C++" $outfile >> $keyfile
+    fi
 }
 
 # Go implemented by shuffle suite
@@ -87,9 +89,11 @@ run_go()
     echo "run Go"
     infile="$1"
     outfile="$2"
-    ( cd $dir/go && go build shuffle.go ) \
-        && ( $dir/go/shuffle $infile > $outfile )
-    printf "%03d %6s %s\n" $count "Go" $outfile >> $keyfile
+    if ( cd $dir/go && go build shuffle.go )
+    then
+        $dir/go/shuffle $infile > $outfile
+        printf "%03d %6s %s\n" $count "Go" $outfile >> $keyfile
+    fi
 }
 
 # Perl implemented by shuffle suite
@@ -118,9 +122,11 @@ run_rust()
     echo "run Rust"
     infile="$1"
     outfile="$2"
-    ( cd $dir/rust && cargo build ) \
-        && ( $dir/rust/target/debug/shuffle $infile > $outfile )
-    printf "%03d %6s %s\n" $count "Rust" $outfile >> $keyfile
+    if ( cd $dir/rust && cargo build )
+    then
+        $dir/rust/target/debug/shuffle $infile > $outfile
+        printf "%03d %6s %s\n" $count "Rust" $outfile >> $keyfile
+    fi
 }
 
 #
