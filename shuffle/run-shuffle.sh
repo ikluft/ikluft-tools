@@ -20,7 +20,7 @@
 #   Rust: Rust compiler, cargo
 
 # obtain the directory where run-shuffle.sh resides because language implementations are under it
-dir=$(dirname $(realpath $0))
+dir="$(dirname "$(realpath "$0")")"
 
 # read command-line parameters
 if [ $# -lt 2 ]
@@ -40,17 +40,17 @@ timestamp=$(date '+%Y-%m-%d-%H-%M-%S')
 keyfile="$prefix-$timestamp-key.txt"
 
 # check condition of input file: must exist and be a file
-if [ \! -e "$input" ]
+if [ ! -e "$input" ]
 then
     echo "input file path points to non-existent entry: $input" >&2
     exit 1
 fi
-if [ \! -f "$input" ]
+if [ ! -f "$input" ]
 then
     echo "input file path points to non-file: $input" >&2
     exit 1
 fi
-if [ \! -r "$input" ]
+if [ ! -r "$input" ]
 then
     echo "input file path points to unreadable file: $input" >&2
     exit 1
@@ -66,8 +66,8 @@ run_c()
     echo "run C"
     infile="$1"
     outfile="$2"
-    shuf $infile > $outfile
-    printf "%03d %6s %s\n" $count "C" $outfile >> $keyfile
+    shuf "$infile" > "$outfile"
+    printf "%03d %6s %s\n" $count "C" "$outfile" >> "$keyfile"
 }
 
 # C++ implemented by shuffle suite
@@ -76,10 +76,10 @@ run_cpp()
     echo "run C++"
     infile="$1"
     outfile="$2"
-    if ( cd $dir/cpp && make )
+    if ( cd "$dir/cpp" && make )
     then
-        $dir/cpp/shuffle $infile > $outfile
-        printf "%03d %6s %s\n" $count "C++" $outfile >> $keyfile
+        "$dir/cpp/shuffle" "$infile" > "$outfile"
+        printf "%03d %6s %s\n" $count "C++" "$outfile" >> "$keyfile"
     fi
 }
 
@@ -89,10 +89,10 @@ run_go()
     echo "run Go"
     infile="$1"
     outfile="$2"
-    if ( cd $dir/go && go build shuffle.go )
+    if ( cd "$dir/go" && go build shuffle.go )
     then
-        $dir/go/shuffle $infile > $outfile
-        printf "%03d %6s %s\n" $count "Go" $outfile >> $keyfile
+        "$dir/go/shuffle" "$infile" > "$outfile"
+        printf "%03d %6s %s\n" $count "Go" "$outfile" >> "$keyfile"
     fi
 }
 
@@ -102,8 +102,8 @@ run_perl()
     echo "run Perl"
     infile="$1"
     outfile="$2"
-    $dir/perl/shuffle.pl $infile > $outfile
-    printf "%03d %6s %s\n" $count "Perl" $outfile >> $keyfile
+    "$dir/perl/shuffle.pl" "$infile" > "$outfile"
+    printf "%03d %6s %s\n" $count "Perl" "$outfile" >> "$keyfile"
 }
 
 # Python implemented by shuffle suite
@@ -112,8 +112,8 @@ run_python()
     echo "run Python"
     infile="$1"
     outfile="$2"
-    $dir/python/shuffle.py $infile > $outfile
-    printf "%03d %6s %s\n" $count "Python" $outfile >> $keyfile
+    "$dir/python/shuffle.py" "$infile" > "$outfile"
+    printf "%03d %6s %s\n" $count "Python" "$outfile" >> "$keyfile"
 }
 
 # Rust implemented by shuffle suite
@@ -122,21 +122,22 @@ run_rust()
     echo "run Rust"
     infile="$1"
     outfile="$2"
-    if ( cd $dir/rust && cargo build )
+    if ( cd "$dir/rust" && cargo build )
     then
-        $dir/rust/target/debug/shuffle $infile > $outfile
-        printf "%03d %6s %s\n" $count "Rust" $outfile >> $keyfile
+        "$dir/rust/target/debug/shuffle" "$infile" > "$outfile"
+        printf "%03d %6s %s\n" $count "Rust" "$outfile" >> "$keyfile"
     fi
 }
 
 #
 # main 
 #
+# shellcheck disable=SC2086 # disable "Double quote to prevent globbing" warning since we want globbing here
 for lang in $(shuf --echo $langs)
 do
-    if [ "$lang" = "c" -o -d "$dir/$lang" ]
+    if [ "$lang" = "c" ] || [ -d "$dir/$lang" ]
     then
-        run_$lang "$input" $(printf "%s-%s-%03d.txt" $prefix $timestamp $count)
+        "run_$lang" "$input" "$(printf "%s-%s-%03d.txt" "$prefix" "$timestamp" $count)"
     fi
-    count=$(expr $count + 1)
+    count=$((count + 1))
 done
