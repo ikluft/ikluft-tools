@@ -50,21 +50,20 @@ fi
 # run scripts from .config/sh/bashrc.d
 if [ -f "${BASHRC_DIR}"/profile-import ]
 then
-    # shellcheck disable=SC2162
-    while read name <  "${BASHRC_DIR}"/profile-import
+    # shellcheck disable=SC2013,SC2162
+    for name in $(cat "${BASHRC_DIR}"/profile-import)
     do
         if [ -e "${SH_PROFILE_DIR}/$name" ]
         then
             # shellcheck disable=SC1090
-            echo ".bashrc: import $name"
             source "${SH_PROFILE_DIR}/$name"
         fi
     done
 fi
 for file in "${BASHRC_DIR}"/*.sh "${BASHRC_DIR}"/*.bash
 do
+        [ -e "$file" ] || continue # catch unmatched globs which are sent verbatim
         # shellcheck disable=SC1090
-        echo ".bashrc: source $file"
         source "$file"
 done
 unset BASHRC_DIR

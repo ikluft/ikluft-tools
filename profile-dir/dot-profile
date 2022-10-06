@@ -1,0 +1,52 @@
+#!/bin/sh
+# ~/.profile is run by bourne-compatible shells when started as login shells
+# bash does not run ~/.profile if ~/.bash_profile exists. This .profile is made for both bash/sh.
+# note: for interactive non-login shells, bash runs ~/.bashrc instead
+# by Ian Kluft
+
+# point SH_PROFILE_DIR to .config/sh/profile.d
+SH_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}"/sh
+SH_PROFILE_DIR="${SH_CONFIG_DIR}"/profile.d
+export SH_PROFILE_DIR
+
+# point to pathmunge.pl which can be used by multiple profile.d scripts
+PATHMUNGE="${SH_CONFIG_DIR}"/pathmunge.pl
+
+# make sure SH_PROFILE_DIR exists
+if [ ! -d "$SH_PROFILE_DIR" ]
+then
+    mkdir -p "$SH_PROFILE_DIR"
+    chmod u=rwx,go= "$SH_PROFILE_DIR"
+fi
+
+# run sh commands from .config/sh/profile.d
+for file in "$SH_PROFILE_DIR"/*.sh
+do
+    # shellcheck source-path=~/.config/sh/profile.d disable=SC1090
+    . "$file"
+done
+
+# if running bash, run bashrc as well as bash scripts in SH_PROFILE_DIR
+if [ -n "${BASH_VERSION}" ]
+then
+    # include .bashrc if it exists
+    if [ -f "${HOME}"/.bashrc ]
+    then
+        if [ -f "${HOME}"/.bashrc ]
+        then
+            # shellcheck source=~/.bashrc disable=SC1090,SC3046
+            source "${HOME}"/.bashrc
+        fi
+    fi
+
+    # run bash commands from .config/sh/profile.d
+    # (following XDG Base Directory Specification to declutter home dot-files)
+    # depends on .bashrc setting xdg_base_set() XDG_CONFIG_HOME PROFILE_DIR
+    # shellcheck disable=SC2153
+    for file in "$SH_PROFILE_DIR"/*.bash
+    do
+        # shellcheck source-path=~/.config/sh/profile.d disable=SC1090,SC3046
+        source "$file"
+    done
+fi
+unset PATHMUNGE
