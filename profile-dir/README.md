@@ -1,0 +1,4 @@
+# Example .profile/.bashrc split into subdirectories
+This directory shows an example of how to split unwieldy .profile and .bashrc scripts into subdirectories. A lot of people have suggested this before. I have a difference in my example which avoids cluttering the home directory with more dot-files. Instead of making a .bashrc.d directory under the home directory, I also split up the .profile and put them under $HOME/.config/sh .
+
+This follows the recommendation of the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/). They suggest putting configuration files under .config. I originally put the .bashrc under .config/bash, but later consolidated everything under .config/sh so that other POSIX-compatible shells could run the same .profile script. This sets aside bash-specific scripts with a .bash suffix. POSIX shell scripts use a .sh suffix.

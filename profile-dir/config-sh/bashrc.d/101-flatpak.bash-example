@@ -1,0 +1,25 @@
+#!/bin/bash
+# 101-flatpak.sh-example - included by .bashrc
+
+# example how to detect Flatpak container environment and control settings for specific containers
+
+# check for Flatpak environment
+if [ -n "$FLATPAK_ID" ]
+then
+    # this block runs when in a Flatpak
+
+    # export variables for Flatpak environment here
+
+    # detect specific Flatpaks
+    if [ "$FLATPAK_ID" = "org.chromium.Chromium" ]
+    then
+        # export variables for Chromium here
+    fi
+else
+    # this block runs when not in a Flatpak
+
+    # load aliases for Flatpaks
+    eval "$(~/bin/flatpak-aliases.pl)"
+
+    # export variables for non-Flatpak environment here
+fi
