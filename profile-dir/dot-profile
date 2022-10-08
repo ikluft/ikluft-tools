@@ -11,6 +11,7 @@ export SH_PROFILE_DIR
 
 # point to pathmunge.pl which can be used by multiple profile.d scripts
 PATHMUNGE="${SH_CONFIG_DIR}"/pathmunge.pl
+export PATHMUNGE
 
 # make sure SH_PROFILE_DIR exists
 if [ ! -d "$SH_PROFILE_DIR" ]
@@ -18,13 +19,6 @@ then
     mkdir -p "$SH_PROFILE_DIR"
     chmod u=rwx,go= "$SH_PROFILE_DIR"
 fi
-
-# run sh commands from .config/sh/profile.d
-for file in "$SH_PROFILE_DIR"/*.sh
-do
-    # shellcheck source-path=~/.config/sh/profile.d disable=SC1090
-    . "$file"
-done
 
 # if running bash, run bashrc as well as bash scripts in SH_PROFILE_DIR
 if [ -n "${BASH_VERSION}" ]
@@ -38,15 +32,33 @@ then
             source "${HOME}"/.bashrc
         fi
     fi
-
-    # run bash commands from .config/sh/profile.d
-    # (following XDG Base Directory Specification to declutter home dot-files)
-    # depends on .bashrc setting xdg_base_set() XDG_CONFIG_HOME PROFILE_DIR
-    # shellcheck disable=SC2153
-    for file in "$SH_PROFILE_DIR"/*.bash
-    do
-        # shellcheck source-path=~/.config/sh/profile.d disable=SC1090,SC3046
-        source "$file"
-    done
 fi
+
+# run sh commands from .config/sh/profile.d
+for file in "$SH_PROFILE_DIR"/*
+do
+    case "$file" in
+
+        # run POSIX/Bourne shell scripts from .config/sh/profile.d
+        "*.sh")
+            # shellcheck source-path=~/.config/sh/profile.d disable=SC1090
+            . "$file"
+        ;;
+
+        # run Bash commands from .config/sh/profile.d
+        "*.bash")
+            if [ -n "${BASH_VERSION}" ]
+            then
+                # shellcheck source-path=~/.config/sh/profile.d disable=SC1090,SC3046
+                source "$file"
+            fi
+        ;;
+
+        *)
+            # others ignored
+        ;;
+    esac
+done
+
+# clean up variables no longer needed after running profile.d scripts
 unset PATHMUNGE

@@ -47,23 +47,34 @@ then
     chmod u=rwx,go= "$BASHRC_DIR"
 fi
 
-# run scripts from .config/sh/bashrc.d
-if [ -f "${BASHRC_DIR}"/profile-import ]
-then
-    # shellcheck disable=SC2013,SC2162
-    for name in $(cat "${BASHRC_DIR}"/profile-import)
-    do
-        if [ -e "${SH_PROFILE_DIR}/$name" ]
-        then
-            # shellcheck disable=SC1090
-            source "${SH_PROFILE_DIR}/$name"
-        fi
-    done
-fi
-for file in "${BASHRC_DIR}"/*.sh "${BASHRC_DIR}"/*.bash
+# run sh commands from .config/sh/bashrc.d
+for file in "${BASHRC_DIR}"/*
 do
-        [ -e "$file" ] || continue # catch unmatched globs which are sent verbatim
-        # shellcheck disable=SC1090
-        source "$file"
+    case "$file" in
+
+        # shell and bash scripts
+        *.sh|*.bash)
+            [ -e "$file" ] || continue # catch unmatched globs which are sent verbatim
+            # shellcheck disable=SC1090
+            source "$file"
+        ;;
+
+        # *.import files are text lists of script names to import/run from .config/sh/profile.d
+        # the suffix allows multiple import lists, such as one from the git source and a local one for personal scripts
+        *.import)
+            # shellcheck disable=SC2013,SC2162
+            for import in $(sed 's/\s*#.*//' "$file" | grep -v '^\s*$')
+            do
+                if [ -e "${SH_PROFILE_DIR}/$import" ]
+                then
+                    # shellcheck disable=SC1090
+                    source "${SH_PROFILE_DIR}/$import"
+                else
+                    echo "warning: '$import' referenced in $file but not found in ${SH_PROFILE_DIR}" >&2
+                fi
+            done
+        ;;
+    esac
 done
+
 unset BASHRC_DIR
