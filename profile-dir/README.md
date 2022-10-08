@@ -10,15 +10,16 @@ The audience for this example is expected to be people who are comfortable modif
 $HOME will be abbreviated with a tilde "~" here. They're largely compatible, except when double-quoted.
 
 ## Installation instructions
-First, get a copy of the profile-dir directory tree from my ikluft-tools repository. You can use the git-clone or tarball methods to get a copy of the repository. You should place these files either under your home directory or at least on the same mount-point as your home directory. This is to avoid a situation where your .bashrc or .profile are not mounted when you log in.
+First, get a copy of the profile-dir directory tree from my ikluft-tools repository. You can use the git-clone or tarball methods to get a copy of the repository. You should place these files either under your home directory or at least on the same mount-point as your home directory. This is to avoid a situation where your .bashrc or .profile may not be mounted when you log in, causing the login scripts to fail.
 
-Next, save your ~/.bashrc, ~/.profile, ~/.bash_profile and/or ~/.bash_login, whichever ones exist in your home directory. In case of a problem, you should be ready to copy them back and start over. You'll also use these to copy snippets of code from your .bashrc and .profile (or ~/.bash_profile or ~/.bash_login, whichever profile script you originally had) to the dot-file subdirectories.
+Next, save and set aside your ~/.bashrc, ~/.profile, ~/.bash_profile and/or ~/.bash_login, whichever ones exist in your home directory. In case of a problem, you should be ready to copy them back and start over. You'll also use these to copy snippets of code from your .bashrc and .profile (or ~/.bash_profile or ~/.bash_login, whichever profile script you originally had) to the dot-file subdirectories.
 
 Then make symbolic links pointing your home directory scripts into the git sources. I'll abbreviate the source directory as _srcdir_. If you used the git clone method, you can update it from the git repository directly after changes occur.
 
 * create a symlink: ~/.bashrc → _srcdir_/dot-bashrc
 * create a symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
+* create symlink: ~/.config/sh/pathmunge.pl → _srcdir_/config-sh/pathmunge.pl
 * create symlinks: ~/.config/sh/bashrc.d/* → _srcdir_/config-sh/bashrc.d/*
 * create symlinks: ~/.config/sh/profile.d/* → _srcdir_/config-sh/profile.d/*
 
@@ -29,3 +30,4 @@ Finally, use your original .bashrc and .profile to create your own local profile
 * bashrc code snippets should go into files in ~/.config/sh/bashrc.d
 * profile code snippets should go into files in ~/.config/sh/profile.d
 * Some scripts in the profile.d directory actually should be executed for login shells (which run .profile) and other interactive shells (for which bash runs .bashrc). Rather than duplicate the files, you can put a text file with a .import suffix in the bashrc.d directory with a list of names of the files from the profile.d directory which should be run. Name the import file with leading numeric digits to indicate the order in which they should run. See the example in [000-common.import](config-sh/bashrc.d/000-common.import) .
+
