@@ -31,3 +31,26 @@ Finally, use your original .bashrc and .profile to create your own local profile
 * profile code snippets should go into files in ~/.config/sh/profile.d
 * Some scripts in the profile.d directory actually should be executed for login shells (which run .profile) and other interactive shells (for which bash runs .bashrc). Rather than duplicate the files, you can put a text file with a .import suffix in the bashrc.d directory with a list of names of the files from the profile.d directory which should be run. Name the import file with leading numeric digits to indicate the order in which they should run. See the example in [000-common.import](config-sh/bashrc.d/000-common.import) .
 
+## Files
+<p>
+	├── <a href="./config-sh/">config-sh</a> - directory with files to symlink in your ~/.config/sh directory<br>
+	│   ├── <a href="./config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
+	│   │   ├── <a href="./config-sh/bashrc.d/000-common.import">000-common.import</a><br>
+	│   │   └── <a href="./config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
+	│   ├── <a href="./config-sh/pathmunge.pl">pathmunge.pl</a> - script to process PATH entries and prevent duplication of entries<br>
+	│   └── <a href="./config-sh/profile.d/">profile.d</a> - files to symlink in your ~/.config/sh/profile.d directory<br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/001-shell.sh">001-shell.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/002-terminal.sh">002-terminal.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/003-pathmunge.sh">003-pathmunge.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/004-color.sh">004-color.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/005-shell.bash">005-shell.bash</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/020-timezone.sh">020-timezone.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/021-vimode.sh">021-vimode.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-gcc.sh">100-dev-gcc.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-go.sh">100-dev-go.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-perl.sh">100-dev-perl.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; └── <a href="./config-sh/profile.d/100-dev-rust.sh">100-dev-rust.sh</a><br>
+	├── <a href="./dot-bashrc">dot-bashrc</a> - file to symlink from your ~/.bashrc script<br>
+	├── <a href="./dot-profile">dot-profile</a> - file to symlink from your ~/.profile script<br>
+	└── <a href="./README.md">README.md</a><br>
+</p>
