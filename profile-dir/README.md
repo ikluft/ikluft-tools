@@ -50,7 +50,9 @@ Then go back to your home directory and substitute the symbolic link for pathmun
 	│   ├── <a href="./config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
 	│   │   ├── <a href="./config-sh/bashrc.d/000-common.import">000-common.import</a><br>
 	│   │   └── <a href="./config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
-	│   ├── <a href="./config-sh/pathmunge.pl">pathmunge.pl</a> - script to process PATH entries and prevent duplication of entries<br>
+	│   ├── <a href="./config-sh/pathmunge/">pathmunge</a> - source code for Perl and Rust implementations of pathmunge<br>
+	│   │   ├── <a href="./config-sh/pathmunge/pathmunge.pl">pathmunge.pl</a> - Perl implementation of pathmunge<br>
+	│   │   └── <a href="./config-sh/pathmunge/pathmunge-rust/">pathmunge-rust</a> - Rust implementation of pathmunge (requires compilation)<br>
 	│   └── <a href="./config-sh/profile.d/">profile.d</a> - files to symlink in your ~/.config/sh/profile.d directory<br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/001-shell.sh">001-shell.sh</a><br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/002-terminal.sh">002-terminal.sh</a><br>
