@@ -37,7 +37,7 @@ SH_PROFILE_DIR="${SH_CONFIG_DIR}/profile.d"
 export BASHRC_DIR SH_PROFILE_DIR
 
 # point to pathmunge.pl which can be used by multiple profile.d scripts
-PATHMUNGE="${SH_CONFIG_DIR}"/pathmunge.pl
+PATHMUNGE="${SH_CONFIG_DIR}"/pathmunge
 export PATHMUNGE
 
 # make sure BASHRC_DIR existS

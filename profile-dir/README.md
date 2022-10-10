@@ -16,10 +16,10 @@ Next, save and set aside your ~/.bashrc, ~/.profile, ~/.bash_profile and/or ~/.b
 
 Then make symbolic links pointing your home directory scripts into the git sources. I'll abbreviate the source directory as _srcdir_. If you used the git clone method, you can update it from the git repository directly after changes occur.
 
-* create a symlink: ~/.bashrc → _srcdir_/dot-bashrc
-* create a symlink: ~/.profile → _srcdir_/dot-profile
+* create symlink: ~/.bashrc → _srcdir_/dot-bashrc
+* create symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
-* create symlink: ~/.config/sh/pathmunge.pl → _srcdir_/config-sh/pathmunge.pl
+* create symlink: ~/.config/sh/pathmunge → _srcdir_/config-sh/pathmunge/pathmunge.pl (or alternate implementation)
 * create symlinks: ~/.config/sh/bashrc.d/* → _srcdir_/config-sh/bashrc.d/*
 * create symlinks: ~/.config/sh/profile.d/* → _srcdir_/config-sh/profile.d/*
 
