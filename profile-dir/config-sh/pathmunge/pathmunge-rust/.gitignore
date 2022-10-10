@@ -1,0 +1,6 @@
+# Rust-centric .gitignore
+debug/
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb

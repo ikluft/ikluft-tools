@@ -16,6 +16,8 @@ Next, save and set aside your ~/.bashrc, ~/.profile, ~/.bash_profile and/or ~/.b
 
 Then make symbolic links pointing your home directory scripts into the git sources. I'll abbreviate the source directory as _srcdir_. If you used the git clone method, you can update it from the git repository directly after changes occur.
 
+For those who need a refresher on how to create symbolic links, use "ln -s target origin". See the [ln(1) manual](https://www.gnu.org/software/coreutils/manual/coreutils.html#ln-invocation). I'm mainly mentioning it here to include the reminder that the ln command arguments may appear backwards. Links below are in the order "origin → target".
+
 * create symlink: ~/.bashrc → _srcdir_/dot-bashrc
 * create symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
@@ -30,6 +32,17 @@ Finally, use your original .bashrc and .profile to create your own local profile
 * bashrc code snippets should go into files in ~/.config/sh/bashrc.d
 * profile code snippets should go into files in ~/.config/sh/profile.d
 * Some scripts in the profile.d directory actually should be executed for login shells (which run .profile) and other interactive shells (for which bash runs .bashrc). Rather than duplicate the files, you can put a text file with a .import suffix in the bashrc.d directory with a list of names of the files from the profile.d directory which should be run. Name the import file with leading numeric digits to indicate the order in which they should run. See the example in [000-common.import](config-sh/bashrc.d/000-common.import) .
+
+## Alternative pathmunge implementation
+If you have [Rust](https://www.rust-lang.org/) installed, you can compile a faster alternative implementation of the pathmunge program used by this profile/bashrc system.
+First compile the pathmunge program with these commands in the _srcdir_ directory used above, where source code from GitHub was placed.
+
+    cd _srcdir_/config-sh/pathmunge/pathmunge-rust/
+    cargo build
+
+Then go back to your home directory and substitute the symbolic link for pathmunge as follows:
+
+* create symlink: ~/.config/sh/pathmunge → _srcdir_/config-sh/pathmunge/target/debug/pathmunge-rust
 
 ## Files
 <p>
