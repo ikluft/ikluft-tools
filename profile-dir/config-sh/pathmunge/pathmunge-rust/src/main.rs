@@ -122,13 +122,19 @@ fn gen_path(cli: CliOpts, elements: Vec<String>) -> String {
         // split element into directory strings
         let dir_strs: Vec<&str> = element.split(cli.delimiter.as_str()).collect();
         for dir_str in dir_strs.into_iter() {
+            // canonicalize and convert to OsStr for checking if it's unique
+            let dir_path = Path::new(dir_str);
+            let dir_canonical = match dir_path.canonicalize() {
+                Ok(x) => x.to_string_lossy().to_string(),
+                Err(_) => continue,
+            };
+
             // skip entries already in dirs_seen set
-            if dirs_seen.contains(dir_str) {
+            if dirs_seen.contains(&dir_canonical) {
                 continue;
             }
 
             // convert directory string into a path and check validity
-            let dir_path = Path::new(dir_str);
             if !dir_path.exists() {
                 // skip paths that don't exist
                 continue;
@@ -139,8 +145,8 @@ fn gen_path(cli: CliOpts, elements: Vec<String>) -> String {
             }
 
             // add dir to path and mark as seen
-            dirs_seen.insert(dir_str.to_string());
-            path_out.push(dir_str.to_string());
+            path_out.push(dir_canonical.to_string());
+            dirs_seen.insert(dir_canonical);
         }
     }
 
