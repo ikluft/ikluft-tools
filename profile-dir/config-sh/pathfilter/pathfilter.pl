@@ -1,9 +1,9 @@
 #!/usr/bin/env perl 
 #===============================================================================
-#         FILE: pathmunge.pl
-#        USAGE: ./pathmunge.pl  
+#         FILE: pathfilter.pl
+#        USAGE: ./pathfilter.pl  
 #  DESCRIPTION: add to Unix PATH with deduplication
-#        USAGE: pathmunge.pl [--before dir:dir:dir]  [--after dir:dir:dir]
+#        USAGE: pathfilter.pl [--before dir:dir:dir]  [--after dir:dir:dir]
 #       AUTHOR: IKLUFT 
 #      CREATED: 04/26/2021 04:19:20 PM
 #===============================================================================

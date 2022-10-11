@@ -1,6 +1,6 @@
-// pathmunge: add to Unix PATH with deduplication
+// pathfilter: add to Unix PATH with deduplication
 // by Ian Kluft
-// usage: pathmunge [--before dir:dir:dir] [--after dir:dir:dir] [--var=varname]
+// usage: pathfilter [--before dir:dir:dir] [--after dir:dir:dir] [--var=varname]
 
 use anyhow::Result;
 use clap::{Arg, ArgGroup, Command};
@@ -32,8 +32,8 @@ struct CliOpts {
 // process command line and return values
 fn process_cli() -> Result<CliOpts, anyhow::Error> {
     // command-line interface
-    let result = Command::new("pathmunge")
-        .about("Pathmunge adds to a Unix PATH or similar environment variable with deduplication of path elements")
+    let result = Command::new("pathfilter")
+        .about("Pathfilter adds to a Unix PATH or similar environment variable with deduplication of path elements")
         .arg(
             Arg::new(BEFORE_PARAM)
                 .long(BEFORE_PARAM)

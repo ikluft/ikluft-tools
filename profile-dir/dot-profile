@@ -4,14 +4,15 @@
 # note: for interactive non-login shells, bash runs ~/.bashrc instead
 # by Ian Kluft
 
-# point SH_PROFILE_DIR to .config/sh/profile.d
-SH_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}"/sh
-SH_PROFILE_DIR="${SH_CONFIG_DIR}"/profile.d
-export SH_PROFILE_DIR
-
-# point to pathmunge.pl which can be used by multiple profile.d scripts
-PATHMUNGE="${SH_CONFIG_DIR}"/pathmunge
-export PATHMUNGE
+# get common functions used by both .bashrc and .profile
+common_sh="$HOME/.config/sh/common.sh"
+if [ ! -e "${common_sh}" ]
+then
+    echo ".profile aborting due to incomplete installation: ~/.config/sh/common.sh not found" >&2
+    return 1 # do not use exit here because it will exit the shell, including login shells
+fi
+# shellcheck source-path=~/.config/sh disable=SC1090,SC1091
+. "${common_sh}"
 
 # make sure SH_PROFILE_DIR exists
 if [ ! -d "$SH_PROFILE_DIR" ]
@@ -61,4 +62,4 @@ do
 done
 
 # clean up variables no longer needed after running profile.d scripts
-unset PATHMUNGE
+unset PATHFILTER

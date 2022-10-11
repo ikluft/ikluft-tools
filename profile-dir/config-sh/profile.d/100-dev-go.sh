@@ -18,7 +18,7 @@ perl=$(which perl) 2>/dev/null
 if [ -n "$perl" ] && [ -n "${GOPATH}" ] && [ -d "${GOPATH}/bin" ]
 then
     oldpath="$PATH"
-    PATH=$("${PATHMUNGE}" --after="${GOPATH}/bin" || echo "${oldpath}")
+    PATH=$("${PATHFILTER}" --after "${GOPATH}/bin" || echo "${oldpath}")
     export PATH
     unset oldpath
 fi

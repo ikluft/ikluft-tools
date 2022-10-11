@@ -21,7 +21,7 @@ For those who need a refresher on how to create symbolic links, use "ln -s targe
 * create symlink: ~/.bashrc → _srcdir_/dot-bashrc
 * create symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
-* create symlink: ~/.config/sh/pathmunge → _srcdir_/config-sh/pathmunge/pathmunge.pl (or alternate implementation)
+* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/pathfilter.pl (or alternate implementation)
 * create symlinks: ~/.config/sh/bashrc.d/* → _srcdir_/config-sh/bashrc.d/*
 * create symlinks: ~/.config/sh/profile.d/* → _srcdir_/config-sh/profile.d/*
 
@@ -33,16 +33,16 @@ Finally, use your original .bashrc and .profile to create your own local profile
 * profile code snippets should go into files in ~/.config/sh/profile.d
 * Some scripts in the profile.d directory actually should be executed for login shells (which run .profile) and other interactive shells (for which bash runs .bashrc). Rather than duplicate the files, you can put a text file with a .import suffix in the bashrc.d directory with a list of names of the files from the profile.d directory which should be run. Name the import file with leading numeric digits to indicate the order in which they should run. See the example in [000-common.import](config-sh/bashrc.d/000-common.import) .
 
-## Alternative pathmunge implementation
-If you have [Rust](https://www.rust-lang.org/) installed, you can compile a faster alternative implementation of the pathmunge program used by this profile/bashrc system.
-First compile the pathmunge program with these commands in the _srcdir_ directory used above, where source code from GitHub was placed.
+## Alternative pathfilter implementation
+If you have [Rust](https://www.rust-lang.org/) installed, you can compile a faster alternative implementation of the pathfilter program used by this profile/bashrc system.
+First compile the pathfilter program with these commands in the _srcdir_ directory used above, where source code from GitHub was placed.
 
-    cd _srcdir_/config-sh/pathmunge/pathmunge-rust/
+    cd _srcdir_/config-sh/pathfilter/pathfilter-rust/
     cargo build
 
-Then go back to your home directory and substitute the symbolic link for pathmunge as follows:
+Then go back to your home directory and substitute the symbolic link for pathfilter as follows:
 
-* create symlink: ~/.config/sh/pathmunge → _srcdir_/config-sh/pathmunge/target/debug/pathmunge-rust
+* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/target/debug/pathfilter-rust
 
 ## Files
 <p>
@@ -50,13 +50,13 @@ Then go back to your home directory and substitute the symbolic link for pathmun
 	│   ├── <a href="./config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
 	│   │   ├── <a href="./config-sh/bashrc.d/000-common.import">000-common.import</a><br>
 	│   │   └── <a href="./config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
-	│   ├── <a href="./config-sh/pathmunge/">pathmunge</a> - source code for Perl and Rust implementations of pathmunge<br>
-	│   │   ├── <a href="./config-sh/pathmunge/pathmunge.pl">pathmunge.pl</a> - Perl implementation of pathmunge<br>
-	│   │   └── <a href="./config-sh/pathmunge/pathmunge-rust/">pathmunge-rust</a> - Rust implementation of pathmunge (requires compilation)<br>
+	│   ├── <a href="./config-sh/pathfilter/">pathfilter</a> - source code for Perl and Rust implementations of pathfilter<br>
+	│   │   ├── <a href="./config-sh/pathfilter/pathfilter.pl">pathfilter.pl</a> - Perl implementation of pathfilter<br>
+	│   │   └── <a href="./config-sh/pathfilter/pathfilter-rust/">pathfilter-rust</a> - Rust implementation of pathfilter (requires compilation)<br>
 	│   └── <a href="./config-sh/profile.d/">profile.d</a> - files to symlink in your ~/.config/sh/profile.d directory<br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/001-shell.sh">001-shell.sh</a><br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/002-terminal.sh">002-terminal.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/003-pathmunge.sh">003-pathmunge.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/003-pathfilter.sh">003-pathfilter.sh</a><br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/004-color.sh">004-color.sh</a><br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/005-shell.bash">005-shell.bash</a><br>
 	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/020-timezone.sh">020-timezone.sh</a><br>
