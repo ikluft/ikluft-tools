@@ -3,7 +3,7 @@
 # borrowed from Debian/RaspberryPiOS default .bashrc
 
 # wrapper to make sure it only runs once, since it can be called from .profile or .bashrc
-if [ -z "${PROFILE_COLOR_EXECUTED}" ]
+if [ -z "${profile_color_executed}" ]
 then
     # set a fancy prompt (non-color, unless we know we "want" color)
     case "$TERM" in
@@ -52,6 +52,5 @@ then
         alias fgrep='fgrep --color=auto'
         alias egrep='egrep --color=auto'
     fi
+    profile_color_executed=1
 fi
-PROFILE_COLOR_EXECUTED=1
-export PROFILE_COLOR_EXECUTED
