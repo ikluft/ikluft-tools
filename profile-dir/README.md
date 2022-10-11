@@ -1,15 +1,17 @@
 # Example .profile/.bashrc split into subdirectories
 by Ian Kluft
 
-This directory shows an example of how to split unwieldy .profile and .bashrc scripts into subdirectories. A lot of people have suggested this before. The approach in my example avoids cluttering the home directory with more dot-files. Instead of making a .bashrc.d directory under the home directory, I also split up the .profile and put them under $HOME/.config/sh .
+This directory shows an example of how to split unwieldy .profile and .bashrc scripts into .profile.d and .bashrc.d subdirectories. A lot of people have suggested this before. The approach in my example avoids cluttering the home directory with more dot-files. Instead of making a .bashrc.d directory under the home directory, I also split up the .profile and put them under $HOME/.config/sh .
 
-This is the recommendation of the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/) by the Free Desktop Foundation. The spec suggests putting user configuration files under .config. I originally put the .bashrc under .config/bash, but later consolidated everything under .config/sh so that other POSIX-compatible shells could run the same .profile script. This sets aside bash-specific scripts with a .bash suffix. POSIX shell scripts use a .sh suffix.
+This is the recommendation of the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/) by the Free Desktop Foundation. The spec suggests putting user configuration files under .config. I originally put the .bashrc under .config/bash, but later consolidated everything under .config/sh so that other POSIX-compatible shells could run the same .profile script. This sets aside bash-specific scripts with a .bash suffix. POSIX shell scripts use a .sh suffix. With these subdirectories, you can split the code from your .bashrc and .profile scripts into as many scripts in the subdirectories as you want or need.
 
 The audience for this example is expected to be people who are comfortable modifying their .bashrc and .profile shell scripts, and consequently noticed these scripts can grow quite large. It's intended for Unix systems such as Linux or BSD running a GNU Bash shell, POSIX-compatible shell or Bourne shell. Among these systems, it should be compatible to run the same setup on your home directories across multiple systems.
 
 $HOME will be abbreviated with a tilde "~" here. They're largely compatible, except when double-quoted.
 
 ## Installation instructions
+I am not providing an installation script. Obviously customization of one's own shell login environment must be treated with care. And everyone is free to do things a little differently, which makes automation of this installation a challenge. Also, it's only a few steps that people who are ready for it should have no problem with.
+
 First, get a copy of the profile-dir directory tree from my ikluft-tools repository. You can use the git-clone or tarball methods to get a copy of the repository. You should place these files either under your home directory or at least on the same mount-point as your home directory. This is to avoid a situation where your .bashrc or .profile may not be mounted when you log in, causing the login scripts to fail.
 
 Next, save and set aside your ~/.bashrc, ~/.profile, ~/.bash_profile and/or ~/.bash_login, whichever ones exist in your home directory. In case of a problem, you should be ready to copy them back and start over. You'll also use these to copy snippets of code from your .bashrc and .profile (or ~/.bash_profile or ~/.bash_login, whichever profile script you originally had) to the dot-file subdirectories.
@@ -21,8 +23,8 @@ For those who need a refresher on how to create symbolic links, use "ln -s targe
 * create symlink: ~/.bashrc → _srcdir_/dot-bashrc
 * create symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
-* create symlink: ~/.config/sh/common.sh → _srcdir_/config-sh/common.sh
-* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/pathfilter.pl (or alternate implementation)
+* create symlink: ~/.config/sh/common.sh → _srcdir_/config-sh/common.sh _(note: .bashrc and .profile will refuse to run without this)_
+* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/pathfilter.pl (or alternate implementation, see below)
 * create symlinks: ~/.config/sh/bashrc.d/* → _srcdir_/config-sh/bashrc.d/*
 * create symlinks: ~/.config/sh/profile.d/* → _srcdir_/config-sh/profile.d/*
 
@@ -43,7 +45,7 @@ First compile the pathfilter program with these commands in the _srcdir_ directo
 
 Then go back to your home directory and substitute the symbolic link for pathfilter as follows:
 
-* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/target/debug/pathfilter-rust
+* create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/pathfilter-rust/target/debug/pathfilter-rust
 
 ## Files
 <p>
@@ -51,7 +53,7 @@ Then go back to your home directory and substitute the symbolic link for pathfil
 	│   ├── <a href="config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
 	│   │   ├── <a href="config-sh/bashrc.d/000-common.import">000-common.import</a><br>
 	│   │   └── <a href="config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
-	│   ├── <a href="config-sh/common.sh">common.sh</a><br>
+	│   ├── <a href="config-sh/common.sh">common.sh</a> - common code used by both ~/.bashrc and ~/.profile<br>
 	│   ├── <a href="config-sh/pathfilter/">pathfilter</a> - source code for Perl and Rust implementations of pathfilter<br>
 	│   │   ├── <a href="config-sh/pathfilter/pathfilter.pl">pathfilter.pl</a> - Perl implementation of pathfilter<br>
 	│   │   └── <a href="config-sh/pathfilter/pathfilter-rust/">pathfilter-rust</a> - Rust implementation of pathfilter (requires compilation)<br>
