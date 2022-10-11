@@ -8,6 +8,7 @@ use std::{
     collections::HashSet,
     env,
     path::Path,
+    process,
     string::{String, ToString},
     vec::Vec,
 };
@@ -15,16 +16,24 @@ use std::{
 // constants
 const DEFAULT_VAR_NAME: &str = "PATH";
 const DEFAULT_DELIMITER: &str = ":";
-const BEFORE_PARAM : &str = "before";
-const AFTER_PARAM : &str = "after";
-const VAR_PARAM : &str = "var";
-const DELIMITER_PARAM : &str = "delimiter";
+const BEFORE_PARAM: &str = "before";
+const AFTER_PARAM: &str = "after";
+const VAR_PARAM: &str = "var";
+const DELIMITER_PARAM: &str = "delimiter";
 
-// add to Unix PATH or similar environment variable with deduplication
-fn main() -> Result<()> {
+// command line data
+struct CliOpts {
+    before: Option<String>,
+    after: Option<String>,
+    var_name: String,
+    delimiter: String,
+}
+
+// process command line and return values
+fn process_cli() -> Result<CliOpts, anyhow::Error> {
     // command-line interface
-    let cli = Command::new("pathmunge")
-        .about("add to a Unix PATH or similar environment variable with deduplication")
+    let result = Command::new("pathmunge")
+        .about("Pathmunge adds to a Unix PATH or similar environment variable with deduplication of path elements")
         .arg(
             Arg::new(BEFORE_PARAM)
                 .long(BEFORE_PARAM)
@@ -61,39 +70,57 @@ fn main() -> Result<()> {
         );
 
     // check for errors
-    let result = cli.try_get_matches();
-    let matches = result?; // unwrap matches from result or end with CLI error
+    let result = result.try_get_matches();
+    let matches = result?; // unwrap matches from result or return with CLI error
 
-    // extract values as Options since these may be missing
-    let before : Option<&String> = matches.get_one::<String>(BEFORE_PARAM);
-    let after : Option<&String> = matches.get_one::<String>(AFTER_PARAM);
+    // extract values
+    let cli = CliOpts {
+        // extract CLI params as Options since these may be missing
+        before: matches.get_one::<String>(BEFORE_PARAM).cloned(),
+        after: matches.get_one::<String>(AFTER_PARAM).cloned(),
 
-    // extract and unwrap values which are protected by a default value
-    let var_name : &String = matches.get_one::<String>(VAR_PARAM).unwrap();
-    let delimiter : &str = matches.get_one::<String>(DELIMITER_PARAM).unwrap().as_str();
+        // extract and unwrap CLI params which won't be empty due to a default value
+        var_name: matches.get_one::<String>(VAR_PARAM).unwrap().to_owned(),
+        delimiter: matches
+            .get_one::<String>(DELIMITER_PARAM)
+            .unwrap()
+            .to_owned(),
+    };
 
+    Ok(cli)
+}
+
+// assemble elements of path from CLI option and environment
+fn assemble_elements(cli: &CliOpts) -> Vec<String> {
     // read the specified environment variable (default PATH), if it exists
-    let env_value = env::var(var_name);
+    let env_value = env::var(&cli.var_name);
 
     // assemble path element strings
     let mut elements: Vec<String> = Vec::new();
-    // before.unwrap_or("".to_string()).split(":").collect();
-    if before.is_some() {
-        elements.push(before.unwrap().to_string());
+    if cli.before.is_some() {
+        let before = cli.before.to_owned().unwrap();
+        elements.push(before);
     }
     if env_value.is_ok() {
-        elements.push(env_value.unwrap().to_string());
+        elements.push(env_value.unwrap());
     }
-    if after.is_some() {
-        elements.push(after.unwrap().to_string());
+    if cli.after.is_some() {
+        let after = cli.after.to_owned().unwrap();
+        elements.push(after);
     }
 
+    // return the vector of path elements
+    elements
+}
+
+// assemble path directories into ordered set, skipping duplicates and invalid paths
+fn gen_path(cli: CliOpts, elements: Vec<String>) -> String {
     // assemble path directories into ordered set, skipping duplicates and invalid paths
     let mut path_out: Vec<String> = Vec::new();
     let mut dirs_seen: HashSet<String> = HashSet::new();
     for element in elements.iter() {
         // split element into directory strings
-        let dir_strs: Vec<&str> = element.split(delimiter).collect();
+        let dir_strs: Vec<&str> = element.split(cli.delimiter.as_str()).collect();
         for dir_str in dir_strs.into_iter() {
             // skip entries already in dirs_seen set
             if dirs_seen.contains(dir_str) {
@@ -117,10 +144,25 @@ fn main() -> Result<()> {
         }
     }
 
-    // join path with separator and print it
-    let path_str: String = path_out.join(delimiter);
-    println!("{}", path_str);
+    // join path with separator and return it
+    path_out.join(cli.delimiter.as_str())
+}
 
-    // done
-    Ok(())
+// add to Unix PATH or similar environment variable with deduplication
+fn main() {
+    // get command-line data
+    let cli = match process_cli() {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{e}");
+            process::exit(1);
+        }
+    };
+
+    // assemble elements of path from CLI option and environment
+    let elements = assemble_elements(&cli);
+
+    // get path and print it
+    let path_str = gen_path(cli, elements);
+    println!("{}", path_str);
 }
