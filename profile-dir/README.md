@@ -21,6 +21,7 @@ For those who need a refresher on how to create symbolic links, use "ln -s targe
 * create symlink: ~/.bashrc → _srcdir_/dot-bashrc
 * create symlink: ~/.profile → _srcdir_/dot-profile
 * create directories: ~/.config/sh ~/.config/sh/bashrc.d ~/.config/sh/profile.d
+* create symlink: ~/.config/sh/common.sh → _srcdir_/config-sh/common.sh
 * create symlink: ~/.config/sh/pathfilter → _srcdir_/config-sh/pathfilter/pathfilter.pl (or alternate implementation)
 * create symlinks: ~/.config/sh/bashrc.d/* → _srcdir_/config-sh/bashrc.d/*
 * create symlinks: ~/.config/sh/profile.d/* → _srcdir_/config-sh/profile.d/*
@@ -46,26 +47,27 @@ Then go back to your home directory and substitute the symbolic link for pathfil
 
 ## Files
 <p>
-	├── <a href="./config-sh/">config-sh</a> - directory with files to symlink in your ~/.config/sh directory<br>
-	│   ├── <a href="./config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
-	│   │   ├── <a href="./config-sh/bashrc.d/000-common.import">000-common.import</a><br>
-	│   │   └── <a href="./config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
-	│   ├── <a href="./config-sh/pathfilter/">pathfilter</a> - source code for Perl and Rust implementations of pathfilter<br>
-	│   │   ├── <a href="./config-sh/pathfilter/pathfilter.pl">pathfilter.pl</a> - Perl implementation of pathfilter<br>
-	│   │   └── <a href="./config-sh/pathfilter/pathfilter-rust/">pathfilter-rust</a> - Rust implementation of pathfilter (requires compilation)<br>
-	│   └── <a href="./config-sh/profile.d/">profile.d</a> - files to symlink in your ~/.config/sh/profile.d directory<br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/001-shell.sh">001-shell.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/002-terminal.sh">002-terminal.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/003-pathfilter.sh">003-pathfilter.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/004-color.sh">004-color.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/005-shell.bash">005-shell.bash</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/020-timezone.sh">020-timezone.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/021-vimode.sh">021-vimode.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-gcc.sh">100-dev-gcc.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-go.sh">100-dev-go.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; ├── <a href="./config-sh/profile.d/100-dev-perl.sh">100-dev-perl.sh</a><br>
-	│   &nbsp;&nbsp;&nbsp; └── <a href="./config-sh/profile.d/100-dev-rust.sh">100-dev-rust.sh</a><br>
-	├── <a href="./dot-bashrc">dot-bashrc</a> - file to symlink from your ~/.bashrc script<br>
-	├── <a href="./dot-profile">dot-profile</a> - file to symlink from your ~/.profile script<br>
-	└── <a href="./README.md">README.md</a><br>
+	├── <a href="config-sh/">config-sh</a> - directory with files to symlink in your ~/.config/sh directory<br>
+	│   ├── <a href="config-sh/bashrc.d/">bashrc.d</a> - files to symlink in your ~/.config/sh/bashrc.d directory<br>
+	│   │   ├── <a href="config-sh/bashrc.d/000-common.import">000-common.import</a><br>
+	│   │   └── <a href="config-sh/bashrc.d/101-flatpak.bash-example">101-flatpak.bash-example</a><br>
+	│   ├── <a href="config-sh/common.sh">common.sh</a><br>
+	│   ├── <a href="config-sh/pathfilter/">pathfilter</a> - source code for Perl and Rust implementations of pathfilter<br>
+	│   │   ├── <a href="config-sh/pathfilter/pathfilter.pl">pathfilter.pl</a> - Perl implementation of pathfilter<br>
+	│   │   └── <a href="config-sh/pathfilter/pathfilter-rust/">pathfilter-rust</a> - Rust implementation of pathfilter (requires compilation)<br>
+	│   └── <a href="config-sh/profile.d/">profile.d</a> - files to symlink in your ~/.config/sh/profile.d directory<br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/001-shell.sh">001-shell.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/002-terminal.sh">002-terminal.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/003-pathfilter.sh">003-pathfilter.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/004-color.sh">004-color.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/005-shell.bash">005-shell.bash</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/020-timezone.sh">020-timezone.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/021-vimode.sh">021-vimode.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/100-dev-gcc.sh">100-dev-gcc.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/100-dev-go.sh">100-dev-go.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; ├── <a href="config-sh/profile.d/100-dev-perl.sh">100-dev-perl.sh</a><br>
+	│   &nbsp;&nbsp;&nbsp; └── <a href="config-sh/profile.d/100-dev-rust.sh">100-dev-rust.sh</a><br>
+	├── <a href="dot-bashrc">dot-bashrc</a> - file to symlink from your ~/.bashrc script<br>
+	├── <a href="dot-profile">dot-profile</a> - file to symlink from your ~/.profile script<br>
+	└── <a href="README.md">README.md</a><br>
 </p>
