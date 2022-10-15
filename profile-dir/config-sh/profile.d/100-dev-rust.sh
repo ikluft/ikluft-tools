@@ -5,7 +5,10 @@
 # software development settings
 #
 
-# Rust
-CARGO_HOME=${HOME}/.local/lib/cargo
-RUSTUP_HOME=${HOME}/.local/lib/rustup
-export CARGO_HOME RUSTUP_HOME
+if source_once dev_rust
+then
+    # Rust
+    CARGO_HOME=${HOME}/.local/lib/cargo
+    RUSTUP_HOME=${HOME}/.local/lib/rustup
+    export CARGO_HOME RUSTUP_HOME
+fi

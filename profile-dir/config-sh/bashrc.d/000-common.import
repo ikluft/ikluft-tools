@@ -1,3 +1,8 @@
 # list of files that bashrc should import & run from profile.d, to avoid duplication of files
 003-pathfilter.sh
 004-color.sh
+021-vimode.sh
+100-dev-gcc.sh
+100-dev-go.sh
+100-dev-perl.sh
+100-dev-rust.sh

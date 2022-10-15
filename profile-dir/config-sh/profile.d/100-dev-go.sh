@@ -5,21 +5,22 @@
 # software development settings
 #
 
-# Golang
-if [ -d "${HOME}"/src/go ]
+if source_once dev_go
 then
-    GOPATH=${HOME}/src/go
-    export GOPATH
-fi
+    # Golang
+    if [ -d "${HOME}"/src/go ]
+    then
+        GOPATH=${HOME}/src/go
+        export GOPATH
+    fi
 
-# path-munging operations
-# skip if perl doesn't exist (which means we're in a container and these paths don't matter)
-perl=$(which perl) 2>/dev/null
-if [ -n "$perl" ] && [ -n "${GOPATH}" ] && [ -d "${GOPATH}/bin" ]
-then
-    oldpath="$PATH"
-    PATH=$("${PATHFILTER}" --after "${GOPATH}/bin" || echo "${oldpath}")
-    export PATH
-    unset oldpath
+    # path-munging operations
+    # skip if we're in a flatpak container
+    if [ -z "$FLATPAK_ID" ] && [ -n "${GOPATH}" ] && [ -d "${GOPATH}/bin" ]
+    then
+        oldpath="$PATH"
+        PATH=$("${PATHFILTER}" --after "${GOPATH}/bin" || echo "${oldpath}")
+        export PATH
+        unset oldpath
+    fi
 fi
-

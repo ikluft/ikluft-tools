@@ -2,7 +2,7 @@
 # 003-pathfilter.sh - included by .profile
 
 # wrapper to make sure it only runs once, since it can be called from .profile or .bashrc
-if [ -z "${profile_pathfilter_executed}" ]
+if source_once pathfilter
 then
     # path-munging operations
     # skip if perl doesn't exist (which means we're in a container and these paths don't matter)
@@ -19,5 +19,4 @@ then
         fi
         export PATH
     fi
-    profile_pathfilter_executed=1
 fi
