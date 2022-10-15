@@ -14,11 +14,13 @@ source_once() {
         # set the variable so it won't be sourced again
         # return 0 (exit code true)
         eval "${var_name}=1"
+        unset var_name
         return 0
     fi
 
     # the variable indicates the script has already been sourced
     # return 1 (exit code false)
+    unset var_name
     return 1
 }
 
@@ -40,6 +42,7 @@ then
             eval "${xdg_var}=$xdg_path"
             eval "export ${xdg_var}"
         fi
+        unset xdg_var xdg_path
     }
     xdg_base_set XDG_CONFIG_HOME "${HOME}/.config"
     xdg_base_set XDG_CACHE_HOME "${HOME}/.cache"
