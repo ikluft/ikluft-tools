@@ -60,4 +60,10 @@ do
     esac
 done
 
+# clean up variables no longer needed after running bashrc.d scripts
+if [ -z "${in_dot_profile}" ]
+then
+    # only clean up source_once() variables if we were not called from .profile, otherwise it also needs them
+    cleanup_from_source_once
+fi
 unset BASHRC_DIR

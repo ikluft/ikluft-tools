@@ -24,6 +24,19 @@ source_once() {
     return 1
 }
 
+# after everything is loaded, remove marker variables from source_once()
+cleanup_from_source_once()
+{
+    vars=$(set | grep '^profile_.*_sourced=' | sed 's/=1$//')
+    if [ -n "$vars" ]
+    then
+        # allow globbing and word splitting so we can unset multiple variables
+        # shellcheck disable=SC2086
+        unset ${vars}
+    fi
+    unset vars
+}
+
 # make sure this only runs once, even when .profile calls .bashrc
 if source_once common
 then

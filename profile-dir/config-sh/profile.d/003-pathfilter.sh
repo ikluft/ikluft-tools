@@ -10,7 +10,7 @@ then
     if [ -n "$perl" ]
     then
         # munge path
-        PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin)
+        PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin --after "${HOME}/bin:${HOME}/.local/bin")
 
         # fix PATH for root - recently has not been including /sbin:/usr/sbin
         if [ "$(/usr/bin/id -n -u)" = 'root' ]

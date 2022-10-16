@@ -22,6 +22,8 @@ then
 fi
 
 # if running bash, run bashrc as well as bash scripts in SH_PROFILE_DIR
+# shellcheck disable=SC2034
+in_dot_profile=1
 if [ -n "${BASH_VERSION}" ]
 then
     # include .bashrc if it exists
@@ -62,4 +64,5 @@ do
 done
 
 # clean up variables no longer needed after running profile.d scripts
-unset PATHFILTER
+cleanup_from_source_once
+unset PATHFILTER in_dot_profile
