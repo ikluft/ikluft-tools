@@ -5,9 +5,8 @@
 if source_once pathfilter
 then
     # path-munging operations
-    # skip if perl doesn't exist (which means we're in a container and these paths don't matter)
-    perl=$(which perl) >/dev/null 2>&1
-    if [ -n "$perl" ]
+    # skip if we're in a flatpak container, which won't have these directories
+    if [ -z "$FLATPAK_ID" ]
     then
         # munge path
         PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin --after "${HOME}/bin:${HOME}/.local/bin")
