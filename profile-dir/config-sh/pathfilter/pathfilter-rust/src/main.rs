@@ -1,4 +1,5 @@
 // pathfilter: add to Unix PATH with deduplication
+// for use with .profile & .bashrc to peocess paths for environment variables
 // by Ian Kluft
 // usage: pathfilter [--before dir:dir:dir] [--after dir:dir:dir] [--var=varname]
 
@@ -9,7 +10,6 @@ use std::{
     env,
     path::Path,
     process,
-    string::{String, ToString},
     vec::Vec,
 };
 
@@ -160,7 +160,7 @@ fn main() {
     let cli = match process_cli() {
         Ok(x) => x,
         Err(e) => {
-            eprintln!("{e}");
+            eprintln!("{}", e);
             process::exit(1);
         }
     };
