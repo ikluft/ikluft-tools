@@ -118,10 +118,10 @@ fn gen_path(cli: CliOpts, elements: Vec<String>) -> String {
     // assemble path directories into ordered set, skipping duplicates and invalid paths
     let mut path_out: Vec<String> = Vec::new();
     let mut dirs_seen: HashSet<String> = HashSet::new();
-    for element in elements.iter() {
+    for element in &elements {
         // split element into directory strings
         let dir_strs: Vec<&str> = element.split(cli.delimiter.as_str()).collect();
-        for dir_str in dir_strs.into_iter() {
+        for dir_str in &dir_strs {
             // canonicalize and convert to OsStr for checking if it's unique
             let dir_path = Path::new(dir_str);
             let dir_canonical = match dir_path.canonicalize() {
