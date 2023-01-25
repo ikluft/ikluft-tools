@@ -1,6 +1,6 @@
 ## Shuffle programs
 
-These are multiple programming language implementations of a program to shuffle lines of text from the input to random order in the output. Current implementations are in [C++](cpp), [Perl](perl), [Python](python), [Rust](rust) and [Go](go). In all cases, they take a file name on the command line, read it and output the lines in randomly-shuffled order.
+These are multiple programming language implementations of a program to shuffle lines of text from the input to random order in the output. Current implementations are in [C++17](cpp17), [C++20](cpp20), [Perl](perl), [Python](python), [Rust](rust) and [Go](go). In all cases, they take a file name on the command line, read it and output the lines in randomly-shuffled order.
 
 I didn't make a C implementation. The GNU Core Utilities program "shuf" ([docs](https://www.gnu.org/software/coreutils/manual/html_node/shuf-invocation.html)/[source](https://github.com/coreutils/coreutils/blob/master/src/shuf.c)) already does that.
 

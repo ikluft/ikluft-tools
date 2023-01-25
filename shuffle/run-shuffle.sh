@@ -35,7 +35,7 @@ fi
 prefix="$1"
 input="$2"
 count=0
-langs="c cpp go perl python rust"
+langs="c cpp17 cpp20 go perl python rust"
 timestamp=$(date '+%Y-%m-%d-%H-%M-%S')
 keyfile="$prefix-$timestamp-key.txt"
 
@@ -70,15 +70,28 @@ run_c()
     printf "%03d %6s %s\n" $count "C" "$outfile" >> "$keyfile"
 }
 
-# C++ implemented by shuffle suite
-run_cpp()
+# C++17 implemented by shuffle suite
+run_cpp17()
 {
-    echo "run C++"
+    echo "run C++17"
     infile="$1"
     outfile="$2"
-    if ( cd "$dir/cpp" && make )
+    if ( cd "$dir/cpp17" && make )
     then
-        "$dir/cpp/shuffle" "$infile" > "$outfile"
+        "$dir/cpp17/shuffle" "$infile" > "$outfile"
+        printf "%03d %6s %s\n" $count "C++" "$outfile" >> "$keyfile"
+    fi
+}
+
+# C++20 implemented by shuffle suite
+run_cpp20()
+{
+    echo "run C++20"
+    infile="$1"
+    outfile="$2"
+    if ( cd "$dir/cpp20" && make )
+    then
+        "$dir/cpp20/shuffle" "$infile" > "$outfile"
         printf "%03d %6s %s\n" $count "C++" "$outfile" >> "$keyfile"
     fi
 }

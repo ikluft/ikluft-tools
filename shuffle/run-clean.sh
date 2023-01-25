@@ -8,6 +8,7 @@
 # https://opensource.org/licenses/GPL-3.0
 # https://www.gnu.org/licenses/gpl-3.0.en.html
 
-(cd cpp && make clean)
+(cd cpp17 && make clean)
+(cd cpp20 && make clean)
 (cd go && go clean shuffle.go)
 (cd rust && cargo clean)
