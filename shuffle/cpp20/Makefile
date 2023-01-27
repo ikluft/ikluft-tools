@@ -1,4 +1,4 @@
-CPPFLAGS=--std=c++20
+CPPFLAGS="-std=c++20"
 GENFILES=shuffle
 
 all: ${GENFILES}
