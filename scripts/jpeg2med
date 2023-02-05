@@ -1,18 +1,18 @@
 #!/bin/sh
 # jpeg2med - scale down JPEG image to medium-sized image (default 500 pixels wide)
-# Copyright (c) 2010-2022 by Ian Kluft
+# Copyright (c) 2010-2023 by Ian Kluft
 # Redistribution permitted by the author under the conditions of the
 # GNU General Public License Version 3.
 #    https://opensource.org/licenses/GPL-3.0
 #
 # usage: jpeg2med file [file ...]
 
-for i in $*
+for basefile in "$@"
 do
-	infile=$i
-	outfile=`basename $i .jpg`-med.jpg
+	infile=$basefile
+	outfile=$(basename "$basefile" .jpg)-med.jpg
 
 	echo "converting $infile to $outfile..."
-	djpeg -pnm $infile | pnmcrop | pnmscale -xsize ${MED_SIZE:-500} | cjpeg -quality 75 > $outfile
+	djpeg -pnm "$infile" | pnmcrop | pnmscale -xsize "${MED_SIZE:-800}" | cjpeg -quality 75 > "$outfile"
 	echo
 done

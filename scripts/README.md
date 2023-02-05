@@ -9,7 +9,7 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[flatpak-aliases.pl](flatpak-aliases.pl)* is a script for Linux desktop and laptop systems (equipped with a graphical user interface) which when executed from the user's .bashrc script will make command-line shell aliases to launch any of the installed Flatpaks on the system. For example, if you installed the Gnu Image Manipulation Program (GIMP), it will make a shell function called org.gnome.GIMP based on the Flatpak's identified to run it, and shell aliases "GIMP" and "gimp" which refer to that shell function. So you can just run it as "gimp" with any usual command line arguments passed along to it. And similar functions/aliases will be made for all Flatpak apps installed on the system.
   - language: Perl5🐪
   - dependencies: [flatpak](https://flatpak.org/)
-- *[jpeg2med](jpeg2med)* is a shell script which copied and scales down a JPEG image to a medium-sized image, defined as 500 pixels or a number set by the MED_SIZE environment variable.
+- *[jpeg2med](jpeg2med)* is a shell script which copied and scales down a JPEG image to a medium-sized image, defined as 800 pixels or a number set by the MED_SIZE environment variable.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[makelog](makelog)* is a shell script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
