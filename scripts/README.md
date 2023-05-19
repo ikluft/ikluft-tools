@@ -20,6 +20,7 @@ This directory contains miscellaneous helpful scripts I've written.
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[rot13](rot13)* implements the trivial ROT13 cypher which rotates the letters 13 positions across the alphabet, so that it is also its own decryption method. This was originated in Internet tradition since the days of UseNet as a trivially-silly cypher which was built into many UseNet reader programs. But it actually dates back to Ancient Roman times. It can still be an amusement when playfully hiding non-important messages from someone who doesn't know what ROT13 is.
   - language: Unix shell🐚
+- *[space-story-count.pl](space-story-count.pl)* is used to list and rank space stories for the JetCityStar Aerospace Chat. The rankings use PrefVote's implementation of the RankedPairs or Schulze preference-voting algorithms to turn rankings from the editorial team members into the team's overall ranking of the stories.
 - *[timestamp-str](timestamp-str)* prints a timestamp string from the current time in YYYYMMDDHHMM format. It can be used for creating files with the creation time in their name.
   - language: Unix shell🐚
 - *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
