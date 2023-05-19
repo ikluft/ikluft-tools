@@ -1,9 +1,9 @@
 This directory contains miscellaneous helpful scripts I've written.
 
-- [android-deviceinfo.sh](android-deviceinfo.sh) is a script to collect various device and system information about an Android device which is connected via ADB. It creates a subdirectory named for the brand and model of the device and puts files in it with output of various commands that are run via ADB shell.
+- *[android-deviceinfo.sh](android-deviceinfo.sh)* is a script to collect various device and system information about an Android device which is connected via ADB. It creates a subdirectory named for the brand and model of the device and puts files in it with output of various commands that are run via ADB shell.
   - language: Unix shell🐚
   - dependencies:  [ADB (Android Debug Bridge)](https://developer.android.com/studio/command-line/adb)
-- [bloat-remover-onntab.sh](bloat-remover-onntab.sh) is a script to remove bloatware apps from an Onn (Walmart) Android tablet. This worked for a 2020-model 10.1 inch tablet. Review and modify the script as needed for your own use. This is for use on Linux or other Unix-like systems. You must have ADB, and may (or may not) need root access on your desktop/laptop system to run ADB. It requires developer access on the tablet, but not root. Of course, since it uninstalls apps, I have to re-emphasize what is already the case from the [GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.txt) that you use it at your own risk. I posted it because I see [people asking online](https://forum.xda-developers.com/t/latest-10-1-inch-onn-tablet-any-way-to-remove-walmart-button-from-the-navbar-remove-other-walmart-branding.4329241/post-85717903). *Warning: you can easily disable your device by removing system apps. Don't remove anything you don't understand. You have been warned.*
+- *[bloat-remover-onntab.sh](bloat-remover-onntab.sh)* is a script to remove bloatware apps from an Onn (Walmart) Android tablet. This worked for a 2020-model 10.1 inch tablet. Review and modify the script as needed for your own use. This is for use on Linux or other Unix-like systems. You must have ADB, and may (or may not) need root access on your desktop/laptop system to run ADB. It requires developer access on the tablet, but not root. Of course, since it uninstalls apps, I have to re-emphasize what is already the case from the [GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.txt) that you use it at your own risk. I posted it because I see [people asking online](https://forum.xda-developers.com/t/latest-10-1-inch-onn-tablet-any-way-to-remove-walmart-button-from-the-navbar-remove-other-walmart-branding.4329241/post-85717903). *Warning: you can easily disable your device by removing system apps. Don't remove anything you don't understand. You have been warned.*
   - language: Unix shell🐚
   - dependencies:  [ADB (Android Debug Bridge)](https://developer.android.com/studio/command-line/adb)
 - *[flatpak-aliases.pl](flatpak-aliases.pl)* is a script for Linux desktop and laptop systems (equipped with a graphical user interface) which when executed from the user's .bashrc script will make command-line shell aliases to launch any of the installed Flatpaks on the system. For example, if you installed the Gnu Image Manipulation Program (GIMP), it will make a shell function called org.gnome.GIMP based on the Flatpak's identified to run it, and shell aliases "GIMP" and "gimp" which refer to that shell function. So you can just run it as "gimp" with any usual command line arguments passed along to it. And similar functions/aliases will be made for all Flatpak apps installed on the system.
@@ -15,16 +15,18 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[makelog](makelog)* is a shell script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
   - language: Unix shell🐚
   - dependencies: [make](https://www.gnu.org/software/make/)
+- *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
+  - dependencies: [perltidy](https://metacpan.org/dist/Perl-Tidy/view/bin/perltidy)
 - *[png2tn](png2tn)* is a shell script which copies and scales down a PNG (Portable Network Graphics) image to a smaller 100-pixel high thumbnail image.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[rot13](rot13)* implements the trivial ROT13 cypher which rotates the letters 13 positions across the alphabet, so that it is also its own decryption method. This was originated in Internet tradition since the days of UseNet as a trivially-silly cypher which was built into many UseNet reader programs. But it actually dates back to Ancient Roman times. It can still be an amusement when playfully hiding non-important messages from someone who doesn't know what ROT13 is.
   - language: Unix shell🐚
 - *[space-story-count.pl](space-story-count.pl)* is used to list and rank space stories for the JetCityStar Aerospace Chat. The rankings use PrefVote's implementation of the RankedPairs or Schulze preference-voting algorithms to turn rankings from the editorial team members into the team's overall ranking of the stories.
+  - language: Perl5🐪
+  - dependencies: [PrefVote](https://github.com/ikluft/prefvote)
 - *[timestamp-str](timestamp-str)* prints a timestamp string from the current time in YYYYMMDDHHMM format. It can be used for creating files with the creation time in their name.
   - language: Unix shell🐚
-- *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
-  - dependencies: [perltidy](https://metacpan.org/dist/Perl-Tidy/view/bin/perltidy)
 
 Scripts moved to other GitHub repos:
 
