@@ -1,5 +1,5 @@
 #!/bin/sh
-# jpeg2med - scale down JPEG image to medium-sized image (default 500 pixels wide)
+# jpeg2med - scale down JPEG image to medium-sized image (default 800 pixels wide)
 # Copyright (c) 2010-2023 by Ian Kluft
 # Redistribution permitted by the author under the conditions of the
 # GNU General Public License Version 3.
