@@ -51,8 +51,8 @@ Readonly::Hash my %methods => (
         name => "RankedPairs",
         class => "PrefVote::RankedPairs",
         description => [
-            '<a href="https://en.wikipedia.org/wiki/Ranked_pairs">Ranked Pairs</a> (Wikipedia), ',
-            'a href="https://github.com/ikluft/prefvote#ranked-pairs-voting-results-from-the-example-data">PrefVote/Ranked Pairs</a> (GitHub)'
+            'algorithm: <a href="https://en.wikipedia.org/wiki/Ranked_pairs">Ranked Pairs</a> (Wikipedia), ',
+            '<a href="https://github.com/ikluft/prefvote#ranked-pairs-voting-results-from-the-example-data">PrefVote/Ranked Pairs</a> (GitHub)'
         ]
     },
     fc("schulze") => {
