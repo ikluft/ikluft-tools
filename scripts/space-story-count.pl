@@ -215,7 +215,7 @@ my $method_name = $methods{$method}{name};
 $vote_def{method} = $method_name;
 $vote_def{params} = {};
 $vote_def{params}{name} = $name;
-$vote_def{params}{seats} = 2;
+$vote_def{params}{seats} = 0;  # zero seats means the entire ranking order is the desired result
 $vote_def{params}{choices} = {};
 foreach my $csv_choice (@$choice_data) {
     my $id = $csv_choice->{"choice identifier"};
