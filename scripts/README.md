@@ -19,7 +19,11 @@ This directory contains miscellaneous helpful scripts I've written.
   - language: Unix shell🐚
   - dependencies: [make](https://www.gnu.org/software/make/)
 - *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
+  - language: Perl5🐪
   - dependencies: [perltidy](https://metacpan.org/dist/Perl-Tidy/view/bin/perltidy)
+- *[perlcritic.rc](perlcritic.rc)* is the perlcritic configuration template used for static analysis of Perl scripts in this repo and others of mine
+  - language: Perl5🐪
+  - dependencies: [perlcritic](https://metacpan.org/dist/Perl-Critic/view/bin/perlcritic) (more via [Wikipedia](https://en.wikipedia.org/wiki/Perl::Critic))
 - *[png2tn](png2tn)* is a shell script which copies and scales down a PNG (Portable Network Graphics) image to a smaller 100-pixel high thumbnail image.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
