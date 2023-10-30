@@ -12,7 +12,7 @@ from railroad import Diagram, DiagramItem, Start, End, Sequence, Choice, OneOrMo
 def outsvg(element: DiagramItem, name: str, is_complex: bool = False):
     """write to file"""
     diag_type = "complex" if is_complex else "simple"
-    svg_path = Path("diag-cef-" + name + ".svg")
+    svg_path = Path("syndiag-cef-" + name + ".svg")
     diag = Diagram(Start(diag_type, name), element, End(diag_type))
     with svg_path.open(mode="w", encoding="utf-8") as svg_file:
         diag.writeSvg(svg_file.write)
