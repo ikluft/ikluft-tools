@@ -14,6 +14,8 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[flatpak-aliases.pl](flatpak-aliases.pl)* is a script for Linux desktop and laptop systems (equipped with a graphical user interface) which when executed from the user's .bashrc script will make command-line shell aliases to launch any of the installed Flatpaks on the system. For example, if you installed the Gnu Image Manipulation Program (GIMP), it will make a shell function called org.gnome.GIMP based on the Flatpak's identified to run it, and shell aliases "GIMP" and "gimp" which refer to that shell function. So you can just run it as "gimp" with any usual command line arguments passed along to it. And similar functions/aliases will be made for all Flatpak apps installed on the system.
   - language: Perl5🐪
   - dependencies: [flatpak](https://flatpak.org/)
+- *[jcsac_gen_cal.py](jcsac_gen_cal.py)* generates calendar entries for the crew selecting space stories at JetCityStar Aerospace Chat
+  - language: Python🐍
 - *[jpeg2med](jpeg2med)* is a shell script which copied and scales down a JPEG image to a medium-sized image, defined as 800 pixels or a number set by the MED_SIZE environment variable.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
