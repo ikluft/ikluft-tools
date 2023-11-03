@@ -10,7 +10,7 @@ import re
 import tempfile
 from zoneinfo import ZoneInfo
 from datetime import datetime, date, timedelta
-from icalendar import Calendar, Event
+from icalendar import Calendar, Event, Alarm
 
 # constants
 DATE_RE = r"^([0-9]{4})-([0-9]{2})-([0-9]{2})$"
@@ -26,6 +26,15 @@ def usage():
     print("usage: " + sys.argv[0] + " YYYY-MM-DD [HH:MM:SS] [timezone]", file=sys.stderr)
 
 
+def gen_alarm(alert_time: timedelta, description: str) -> Alarm:
+    """generate an Alarm subcomponent to be added into event components"""
+    alarm = Alarm()
+    alarm.add("action", "DISPLAY")
+    alarm.add('trigger', alert_time)
+    alarm.add('description', description)
+    return alarm
+
+
 def dl1_event(d_t: dict) -> Event:
     """generate event for space story submission deadline"""
     event = Event()
@@ -37,6 +46,8 @@ def dl1_event(d_t: dict) -> Event:
     event.add('dtstart', d_t["story_dl_dt"])
     event.add('dtend', d_t["story_dl_dt"])
     event.add('created', d_t["now"])
+    event.add_component(gen_alarm(alert_time=timedelta(hours=-24),
+                                  description="submit space stories for Aerospace Chat"))
     event.add('sequence', 0)
     return event
 
@@ -52,6 +63,8 @@ def dl2_event(d_t: dict) -> Event:
     event.add('dtstart', d_t["ranking_dl_dt"])
     event.add('dtend', d_t["ranking_dl_dt"])
     event.add('created', d_t["now"])
+    event.add_component(gen_alarm(alert_time=timedelta(hours=-6),
+                                  description="submit space story ranking for Aerospace Chat"))
     event.add('sequence', 1)
     return event
 
@@ -66,6 +79,8 @@ def jcs_event(d_t: dict) -> Event:
     event.add('dtstart', d_t["chat_start"])
     event.add('dtend', d_t["chat_end"])
     event.add('created', d_t["now"])
+    event.add_component(gen_alarm(alert_time=timedelta(hours=-1),
+                                  description="@JetCityStar Aerospace Chat"))
     event.add('sequence', 2)
     return event
 
