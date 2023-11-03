@@ -31,6 +31,9 @@ def dl1_event(d_t: dict) -> Event:
     event = Event()
     event.add('summary',
               'space story submission deadline for Aerospace Chat ' + d_t["jcsac_date"])
+    event.add('description',
+              "Space Crew story submissions due - this deadline gives a day for the team to rank "
+              + "the space stories before Isaac needs the list to prepare for the Aerospace Chat")
     event.add('dtstart', d_t["story_dl_dt"])
     event.add('dtend', d_t["story_dl_dt"])
     event.add('created', d_t["now"])
@@ -42,6 +45,10 @@ def dl2_event(d_t: dict) -> Event:
     """generate event for space story ranking deadine"""
     event = Event()
     event.add('summary', 'space story ranking deadline for Aerospace Chat ' + d_t["jcsac_date"])
+    event.add('description',
+              "Space Crew story rankings due - this deadline gives some hours on Friday before "
+              + "the Sunday chat for Ian to process the individual rankings into a group ranking "
+              + "and send the results to Isaac")
     event.add('dtstart', d_t["ranking_dl_dt"])
     event.add('dtend', d_t["ranking_dl_dt"])
     event.add('created', d_t["now"])
@@ -53,6 +60,9 @@ def jcs_event(d_t: dict) -> Event:
     """generate main event for JetCityStar Aerospace Chat"""
     event = Event()
     event.add('summary', 'JetCityStar Aerospace Chat ' + d_t["jcsac_date"])
+    event.add('description',
+              "Aerospace chat hosted by Isaac @JetCityStar and Nick @JetTipNet "
+              + "- Zoom meeting details distributed via email")
     event.add('dtstart', d_t["chat_start"])
     event.add('dtend', d_t["chat_end"])
     event.add('created', d_t["now"])
