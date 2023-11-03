@@ -26,7 +26,7 @@ def usage():
     print("usage: " + sys.argv[0] + " YYYY-MM-DD [HH:MM:SS] [timezone]", file=sys.stderr)
 
 
-def dl1_event(d_t: dict):
+def dl1_event(d_t: dict) -> Event:
     """generate event for space story submission deadline"""
     event = Event()
     event.add('summary',
@@ -38,7 +38,7 @@ def dl1_event(d_t: dict):
     return event
 
 
-def dl2_event(d_t: dict):
+def dl2_event(d_t: dict) -> Event:
     """generate event for space story ranking deadine"""
     event = Event()
     event.add('summary', 'space story ranking deadline for Aerospace Chat ' + d_t["jcsac_date"])
@@ -49,7 +49,7 @@ def dl2_event(d_t: dict):
     return event
 
 
-def jcs_event(d_t: dict):
+def jcs_event(d_t: dict) -> Event:
     """generate main event for JetCityStar Aerospace Chat"""
     event = Event()
     event.add('summary', 'JetCityStar Aerospace Chat ' + d_t["jcsac_date"])
@@ -60,7 +60,7 @@ def jcs_event(d_t: dict):
     return event
 
 
-def run():
+def run() -> int:
     """main function"""
     d_t = {}
 
