@@ -19,6 +19,9 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[jpeg2med](jpeg2med)* is a shell script which copied and scales down a JPEG image to a medium-sized image, defined as 800 pixels or a number set by the MED_SIZE environment variable.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
+- *[jpeg2sc](jpeg2sc)* is a shell script which copied and scales down a JPEG image, default 1600 pixels otherwise a number set by the MED_SIZE environment variable.
+  - language: Unix shell🐚
+  - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[makelog](makelog)* is a shell script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
   - language: Unix shell🐚
   - dependencies: [make](https://www.gnu.org/software/make/)

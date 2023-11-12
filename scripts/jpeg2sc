@@ -1,0 +1,19 @@
+#!/bin/sh
+# jpeg2sc - scale down JPEG image (default 1600 pixels wide)
+# Copyright (c) 2010-2023 by Ian Kluft
+# Redistribution permitted by the author under the conditions of the
+# GNU General Public License Version 3.
+#    https://opensource.org/licenses/GPL-3.0
+#
+# usage: jpeg2sc file [file ...]
+
+for i in "$@"
+do
+	infile=$i
+    outfile=$(basename "$i" .jpg)-sc.jpg
+
+	echo "converting $infile to $outfile..."
+	jpegtopnm "$infile" | pnmcrop -sides -right | pnmgamma 1.3 | pamscale --height "${MED_SIZE:-1600}" | pnmtojpeg -quality=90 > "$outfile"
+	exiftool -overwrite_original_in_place -tagsFromFile "$infile" "$outfile"
+	echo
+done
