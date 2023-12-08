@@ -56,14 +56,14 @@ Scripts moved to other GitHub repos:
   setting up containers.
 
 - *ical-isc2sv-mtg.pl* generates a QR code with an ICal event. I made this for
-  monthly ISC² Silicon Valley Chapter meetings. But by filling in the
+  monthly ISC2 Silicon Valley Chapter meetings. But by filling in the
   command-line arguments, it can generate QR codes for a variety of events.
-  It was moved to [GitHub - ikluft/isc2sv-tools: software tools for (ISC)² Silicon Valley Chapter](https://github.com/ikluft/isc2sv-tools)
+  It was moved to [GitHub - ikluft/isc2sv-tools: software tools for ISC2 Silicon Valley Chapter](https://github.com/ikluft/isc2sv-tools)
 
 - *isc2-zoomcsv2cpe.pl* processes a Zoom webinar attendee report (in Comma
   Separated Values CSV format) into CSV data with members' earned Continuing
   Professional Education CPE points for the amount of time Zoom says they
-  attended the meeting. I made this for monthly ISC² Silicon Valley Chapter
-  meetings. This could be useful to other ISC² chapters, but not likely for
+  attended the meeting. I made this for monthly ISC2 Silicon Valley Chapter
+  meetings. This could be useful to other ISC2 chapters, but not likely for
   any other purposes.
-  It was moved to [GitHub - ikluft/isc2sv-tools: software tools for (ISC)² Silicon Valley Chapter](https://github.com/ikluft/isc2sv-tools)
+  It was moved to [GitHub - ikluft/isc2sv-tools: software tools for ISC2 Silicon Valley Chapter](https://github.com/ikluft/isc2sv-tools)
