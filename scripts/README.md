@@ -11,6 +11,9 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[conv-mstdn.sh](conv-mstdn.sh)* reduces the size of an MP4 video file for upload to Mastodon, where some instance servers have relatively lower file size limits
   - language: Unix shell🐚
   - dependencies: [ffmpeg](https://ffmpeg.org/)
+- *[d2dms](d2dms)* converts decimal degrees from the command line to degrees, minutes and seconds
+  - language: Perl5🐪
+  - dependencies: none
 - *[flatpak-aliases.pl](flatpak-aliases.pl)* is a script for Linux desktop and laptop systems (equipped with a graphical user interface) which when executed from the user's .bashrc script will make command-line shell aliases to launch any of the installed Flatpaks on the system. For example, if you installed the Gnu Image Manipulation Program (GIMP), it will make a shell function called org.gnome.GIMP based on the Flatpak's identified to run it, and shell aliases "GIMP" and "gimp" which refer to that shell function. So you can just run it as "gimp" with any usual command line arguments passed along to it. And similar functions/aliases will be made for all Flatpak apps installed on the system.
   - language: Perl5🐪
   - dependencies: [flatpak](https://flatpak.org/)
