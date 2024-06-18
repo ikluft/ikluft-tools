@@ -17,7 +17,7 @@ DATE_RE = r"^([0-9]{4})-([0-9]{2})-([0-9]{2})$"
 TIME_RE = r"^([0-9]{2}):([0-9]{2}):([0-9]{2})$"
 DEFAULT_TIME = "17:00:00"
 DEFAULT_TZ = "America/Los_Angeles"
-STORY_DL_HOUR = 10
+STORY_DL_HOUR = 9
 RANKING_DL_HOUR = 9
 
 
