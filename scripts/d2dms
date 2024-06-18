@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+# convert degrees to degrees/minutes/seconds
+#
+# Copyright 2003,2024 by Ian Kluft
+# released as Open Source Software under the GNU General Public License Version 3.
+# See https://www.gnu.org/licenses/gpl.txt
+#
+# Current source code for this script can be found at
+# https://github.com/ikluft/ikluft-tools/blob/master/scripts/d2dms
+
+use strict;
+use warnings;
+
+# function to convert decimal degrees to degrees/minutes/seconds
+sub d_to_dms
+{
+        my ( $deg ) = @_;
+        my ( $d, $m1, $m, $s );
+        $d = int($deg );
+        $m1 = abs( $deg - $d ) * 60.0;
+        $m = int($m1);
+        $s = ( $m1 - $m ) * 60.0;
+        return ( $d, $m, $s );
+}
+
+$ARGV[0] or die "usage: $0 degrees\n";
+printf "%d°%02d'%05.2f\"\n", d_to_dms($ARGV[0]);
