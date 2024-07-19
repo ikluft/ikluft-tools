@@ -15,3 +15,5 @@ Each directory in this repository is for its own separate script or tool that I'
 [*scripts*](scripts/) - miscellaneous helpful scripts
 
 [*shuffle*](shuffle) - randomly shuffle lines from a text file (multiple language implementations)
+
+[*space-alerts*](space-alerts) - space-related alert feed monitoring (i.e. geomagnetic storms, asteroid passes)
