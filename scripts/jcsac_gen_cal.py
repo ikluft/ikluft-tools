@@ -7,7 +7,6 @@ by Ian Kluft
 import sys
 import os
 import re
-import tempfile
 from zoneinfo import ZoneInfo
 from datetime import datetime, date, timedelta
 from icalendar import Calendar, Event, Alarm
@@ -134,8 +133,7 @@ def run() -> int:
 
     # write output
     print(cal.to_ical().decode("utf-8"))
-    directory = tempfile.mkdtemp(prefix="jcsac-space")
-    outpath = os.path.join(directory, 'jcsac-space-' + d_t["jcsac_date"] + '.ics')
+    outpath = os.path.realpath('./jcsac-space-' + d_t["jcsac_date"] + '.ics')
     with open(outpath, 'wb') as outfile:
         outfile.write(cal.to_ical())
     print("output to ", outpath)
