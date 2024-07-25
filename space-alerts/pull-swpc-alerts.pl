@@ -27,7 +27,7 @@ use Data::Dumper;
 
 # parse command-line
 my %options;
-GetOptions( \%options, "test|test_mode", "proxy:s" );
+GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
 # constants
 Readonly::Scalar my $TEST_MODE => $options{test}     // 0;
@@ -39,10 +39,14 @@ Readonly::Scalar my $OUTDIR   => $FindBin::Bin;
 Readonly::Scalar my $OUTJSON  => "swpc-data.json";
 Readonly::Scalar my $TEMPLATE => "noaa-swpc-alerts.tt";
 Readonly::Scalar my $OUTHTML  => "noaa-swpc-alerts.html";
-Readonly::Hash my %MONTH_NUM => (
+Readonly::Hash   my %MONTH_NUM => (
     "jan" => 1, "feb" => 2, "mar" => 3, "apr" => 4,
     "may" => 5, "jun" => 6, "jul" => 7, "aug" => 8,
     "sep" => 9, "oct" => 10, "nov" => 11, "dec" => 12,
+);
+Readonly::Array  my @END_HEADERS = (
+    "Valid To",
+    "Now Valid Until",
 );
 
 # convert date string to DateTime object
@@ -128,7 +132,10 @@ $params->{json} = JSON::from_json $json_text;
 
 # convert response JSON data to template-able result
 $params->{alerts} = [];
-foreach my $raw_item ( @{ $params->{json}{data} } ) {
+$params->{serials} = {};
+say STDERR 'debug(json-data): '.Dumper($params->{json});
+say STDERR '';
+foreach my $raw_item ( @{ $params->{json} } ) {
     # start SWPC alert record
     my %item;
     foreach my $key (keys %$raw_item) {
@@ -143,6 +150,11 @@ foreach my $raw_item ( @{ $params->{json}{data} } ) {
         }
     }
 
-    # skip expired fields
+    # skip expired records
     # TODO
+
+    # process cancellation of prior items
+    # TODO
+
+    say STDERR 'debug(item): '.Dumper(\%item);
 }
