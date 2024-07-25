@@ -12,13 +12,16 @@ use warnings;
 use utf8;
 use autodie;
 use feature qw(say);
+use boolean ':all';
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
 use FindBin;
 use DateTime;
+use DateTime::Duration;
 use IPC::Run;
 use Getopt::Long;
+use Set::Tiny;
 use File::Slurp;
 use IO::Interactive qw(is_interactive);
 use JSON;
@@ -44,31 +47,43 @@ Readonly::Hash   my %MONTH_NUM => (
     "may" => 5, "jun" => 6, "jul" => 7, "aug" => 8,
     "sep" => 9, "oct" => 10, "nov" => 11, "dec" => 12,
 );
-Readonly::Array  my @END_HEADERS = (
-    "Valid To",
-    "Now Valid Until",
-);
+Readonly::Scalar my $SERIAL_HEADER => "Serial Number";
+Readonly::Scalar my $BEGIN_TIME_HEADER => "Begin Time";
+Readonly::Scalar my $VALID_FROM_HEADER => "Valid From";
+Readonly::Scalar my $VALID_TO_HEADER => "Valid To";
+Readonly::Scalar my $END_TIME_HEADER => "End Time";
+Readonly::Scalar my $EXTEND_TIME_HEADER => "Now Valid Until";
+Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
+Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
+Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
+
+# global template data & config
+my $paths  = {};
+my $params = {};
+$params->{alerts} = {};
+$params->{active} = Set::Tiny->new();
+$params->{inactive} = Set::Tiny->new();
+$params->{cancel} = Set::Tiny->new();
+$params->{supersede} = Set::Tiny->new();
 
 # convert date string to DateTime object
 sub datestr2dt
 {
     my $date_str = shift;
     my ( $year, $mon_str, $day, $time, $zone ) = split qr(\s+)x, $date_str;
-    if ( not exists $MONTH_NUM{$mon_str}) {
+    if ( not exists $MONTH_NUM{lc $mon_str}) {
         croak "bad month '$mon_str' in date";
     }
-    my $mon = int($MONTH_NUM{$mon_str});
+    my $mon = int($MONTH_NUM{lc $mon_str});
     my $hour = int(substr($time, 0, 2));
     my $min = int(substr($time, 2, 2));
-    return DateTime->new( year => int($year), mon => $mon, day => int($day), hour => $hour, min => $min,
+    return DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
         time_zone => $zone );
 }
 
 # perform SWPC request and save result in named file
 sub do_swpc_request
 {
-    my ( $paths, $params ) = @_;
-
     # perform SWPC request
     if ($TEST_MODE) {
         if ( not -e $paths->{outlink} ) {
@@ -108,9 +123,120 @@ sub do_swpc_request
     return;
 }
 
-# template data & setup
-my $params = {};
-my $paths  = {};
+# parse a message entry
+sub parse_message
+{
+    my $item_ref = shift;
+
+    # decode message text info further data fields
+    $item_ref->{msg_data} = {};
+    my @msg_lines = split "\r\n", $item_ref->{message};
+    my $last_header;
+    for ( my $line=0; $line <= scalar @msg_lines; $line++ ) {
+        if (( not defined $msg_lines[$line] ) or ( length($msg_lines[$line]) == 0 )) {
+            undef $last_header;
+            next;
+        }
+        if ( $msg_lines[$line]  =~ /^\s*([^:]*)[:]\s*(.*)/x ) {
+            $item_ref->{msg_data}{$1} = $2;
+            $last_header = $1;
+            next;
+        }
+        if ( defined $last_header ) {
+            $item_ref->{msg_data}{$last_header} .= "\n".$msg_lines[$line];
+        } else {
+            if ( exists $item_ref->{msg_data}{notes}) {
+                $item_ref->{msg_data}{notes} .= "\n".$msg_lines[$line];
+            } else {
+                $item_ref->{msg_data}{notes} = $msg_lines[$line];
+            }
+        }
+    }
+    return;
+}
+
+# set an alert as active
+sub alert_active
+{
+    my $serial = shift;
+    if ( not exists $params->{alerts}{$serial} ) {
+        croak "attempt to set as active a non-existent alert: $serial";
+    }
+
+    # if a cancellation was issued for this serial number, do not activate it
+    if ($params->{cancel}->contains($serial)) {
+        $params->{active}->remove($serial);
+        $params->{inactive}->remove($serial);
+        return;
+    }
+
+    # if this serial number was superseded, do not activate it
+    if ($params->{supersede}->contains($serial)) {
+        $params->{active}->remove($serial);
+        $params->{inactive}->remove($serial);
+        return;
+    }
+
+    # set alert as active
+    $params->{active}->insert($serial);
+    if ($params->{inactive}->contains($serial)) {
+        $params->{inactive}->remove($serial);
+    }
+    return;
+}
+
+# set an alert as inactive
+sub alert_inactive
+{
+    my $serial = shift;
+    if ( not exists $params->{alerts}{$serial} ) {
+        croak "attempt to set as inactive a non-existent alert: $serial";
+    }
+    $params->{inactive}->insert($serial);
+    if ($params->{active}->contains($serial)) {
+        $params->{active}->remove($serial);
+    }
+    return;
+}
+
+# set an alert as canceled, which may be set before the record is read
+sub alert_cancel
+{
+    my $serial = shift;
+    $params->{cancel}->insert($serial);
+    if ($params->{active}->contains($serial)) {
+        $params->{active}->remove($serial);
+    }
+    return;
+}
+
+# set an alert as superseded, which may be set before the record is read
+sub alert_supersede
+{
+    my $serial = shift;
+    $params->{supersede}->insert($serial);
+    if ($params->{active}->contains($serial)) {
+        $params->{active}->remove($serial);
+    }
+    return;
+}
+
+# query status of an alert
+sub alert_is_active { my $serial = shift; return $params->{active}->contains($serial); }
+sub alert_is_inactive { my $serial = shift; return $params->{inactive}->contains($serial); }
+sub alert_is_cancel { my $serial = shift; return $params->{cancel}->contains($serial); }
+sub alert_is_supersede { my $serial = shift; return $params->{supersede}->contains($serial); }
+sub alert_status
+{
+    my $serial = shift;
+    my @states;
+    foreach my $set_type ( qw(active inactive cancel supersede)) {
+        if ( $params->{$set_type}->contains($serial)) {
+            push @states, $set_type;
+        }
+    }
+    return join(" ", @states);
+}
 
 # clear destination symlink
 $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
@@ -122,7 +248,7 @@ if ( -e $paths->{outlink} ) {
 $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
 
 # perform SWPC request
-do_swpc_request( $paths, $params );
+do_swpc_request();
 
 # read JSON into template data
 # in case of JSON error, allow these to crash the program here before proceeding to symlinks
@@ -131,30 +257,93 @@ my $json_text = File::Slurp::read_file($json_path);
 $params->{json} = JSON::from_json $json_text;
 
 # convert response JSON data to template-able result
-$params->{alerts} = [];
-$params->{serials} = {};
-say STDERR 'debug(json-data): '.Dumper($params->{json});
-say STDERR '';
+# say STDERR 'debug(json-data): '.Dumper($params->{json});
+# say STDERR '';
 foreach my $raw_item ( @{ $params->{json} } ) {
     # start SWPC alert record
     my %item;
     foreach my $key (keys %$raw_item) {
         $item{$key} = $raw_item->{$key};
     }
-    $item{msg_data} = {};
 
-    # decode message text info further data fields
-    foreach my $msg_line (split "\r\n", $item{message}) {
-        if ( $msg_line =~ /^([^-:]*)\s*[-:]\s*(.*)/x ) {
-            $item{msg_data}{$1} = $2;
+    # decode message text info further data fields - we can use msg_data after this point
+    parse_message(\%item);
+
+    # save alert indexed by serial number
+    if (not exists $item{msg_data}{$SERIAL_HEADER}) {
+        # if no serial number then the record is not a valid alert
+        next;
+    }
+    my $serial = $item{msg_data}{$SERIAL_HEADER};
+    $params->{alerts}{$serial} = \%item;
+
+    # process cancellation of another serial number
+    if ( exists $item{msg_data}{$CANCEL_SERIAL_HEADER}) {
+        alert_cancel($item{msg_data}{$CANCEL_SERIAL_HEADER});
+        alert_inactive($serial);
+        next;
+    }
+
+    # process extension/superseding of another serial number
+    if ( exists $item{msg_data}{$EXTEND_SERIAL_HEADER}) {
+        alert_supersede($item{msg_data}{$EXTEND_SERIAL_HEADER});
+    }
+
+    # set status as active or inactive based on begin and expiration headers
+    foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
+        if ( exists $item{msg_data}{$begin_hdr}) {
+            my $begin_dt = datestr2dt($item{msg_data}{$begin_hdr});
+            if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
+                # begin time has not yet been reached
+                alert_inactive($serial);
+                last;
+            }
+        }
+    }
+    foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER ) {
+        if ( exists $item{msg_data}{$end_hdr}) {
+            my $end_dt = datestr2dt($item{msg_data}{$end_hdr});
+            if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
+                # expiration time has been reached
+                alert_inactive($serial);
+                last;
+            }
         }
     }
 
-    # skip expired records
-    # TODO
+    # set status active or inactive if threshold reached within 72 hours ago
+    if ( exists $item{msg_data}{$THRESHOLD_REACHED_HEADER}) {
+        my $tr_dt = datestr2dt($item{msg_data}{$THRESHOLD_REACHED_HEADER});
+        if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => 72)) > 0) {
+            # expiration time has been reached
+            alert_inactive($serial);
+            last;
+        }
+    }
+    if ( exists $item{msg_data}{$BEGIN_TIME_HEADER} and not exists $item{msg_data}{$END_TIME_HEADER}) {
+        my $bt_dt = datestr2dt($item{msg_data}{$BEGIN_TIME_HEADER});
+        if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => 72)) > 0) {
+            # expiration time has been reached
+            alert_inactive($serial);
+            last;
+        }
+    }
 
-    # process cancellation of prior items
-    # TODO
+    # activate the serial number if it is not expuired or canceled
+    if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
+        alert_active($serial);
+    }
 
-    say STDERR 'debug(item): '.Dumper(\%item);
+    #say STDERR 'debug(item): '.Dumper(\%item);
+}
+
+say STDERR 'debug(alert keys): '.join(" ", sort {$a <=> $b} keys %{$params->{alerts}});
+say STDERR 'debug(active): '.join(" ", sort {$a <=> $b} $params->{active}->elements());
+say STDERR 'debug(inactive): '.join(" ", sort {$a <=> $b} $params->{inactive}->elements());
+say STDERR 'debug(cancel): '.join(" ", sort {$a <=> $b} $params->{cancel}->elements());
+say STDERR 'debug(supersede): '.join(" ", sort {$a <=> $b} $params->{supersede}->elements());
+
+# display active alerts
+foreach my $alert_serial ( sort {$a <=> $b} $params->{active}->elements()) {
+    say "alert $alert_serial: ".Dumper($params->{alerts}{$alert_serial});
 }
