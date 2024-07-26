@@ -11,7 +11,8 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
-use feature qw(say);
+use Modern::Perl qw(2015);
+use feature qw(say try);
 use boolean ':all';
 use Readonly;
 use Carp qw(croak confess);
@@ -238,112 +239,169 @@ sub alert_status
     return join(" ", @states);
 }
 
-# clear destination symlink
-$paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
-if ( -e $paths->{outlink} ) {
-    if ( not -l $paths->{outlink} ) {
-        croak "destination file $paths->{outlink} is not a symlink";
+# in test mode, dump program status for debugging
+sub test_dump
+{
+    # in test mode, dump status then exit before messing with symlink or removing old files
+    if ($TEST_MODE) {
+        say 'test mode';
+        say '* alert keys: '.join(" ", sort {$a <=> $b} keys %{$params->{alerts}});
+        say '* active: '.join(" ", sort {$a <=> $b} $params->{active}->elements());
+        say '* inactive: '.join(" ", sort {$a <=> $b} $params->{inactive}->elements());
+        say '* cancel: '.join(" ", sort {$a <=> $b} $params->{cancel}->elements());
+        say '* supersede: '.join(" ", sort {$a <=> $b} $params->{supersede}->elements());
+
+        # display active alerts
+        foreach my $alert_serial ( sort {$a <=> $b} $params->{active}->elements()) {
+            say "alert $alert_serial: ".Dumper($params->{alerts}{$alert_serial});
+        }
+        exit 0;
     }
+
 }
-$paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
 
-# perform SWPC request
-do_swpc_request();
-
-# read JSON into template data
-# in case of JSON error, allow these to crash the program here before proceeding to symlinks
-my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
-my $json_text = File::Slurp::read_file($json_path);
-$params->{json} = JSON::from_json $json_text;
-
-# convert response JSON data to template-able result
-# say STDERR 'debug(json-data): '.Dumper($params->{json});
-# say STDERR '';
-foreach my $raw_item ( @{ $params->{json} } ) {
-    # start SWPC alert record
-    my %item;
-    foreach my $key (keys %$raw_item) {
-        $item{$key} = $raw_item->{$key};
-    }
-
-    # decode message text info further data fields - we can use msg_data after this point
-    parse_message(\%item);
-
-    # save alert indexed by serial number
-    if (not exists $item{msg_data}{$SERIAL_HEADER}) {
-        # if no serial number then the record is not a valid alert
-        next;
-    }
-    my $serial = $item{msg_data}{$SERIAL_HEADER};
-    $params->{alerts}{$serial} = \%item;
-
-    # process cancellation of another serial number
-    if ( exists $item{msg_data}{$CANCEL_SERIAL_HEADER}) {
-        alert_cancel($item{msg_data}{$CANCEL_SERIAL_HEADER});
-        alert_inactive($serial);
-        next;
-    }
-
-    # process extension/superseding of another serial number
-    if ( exists $item{msg_data}{$EXTEND_SERIAL_HEADER}) {
-        alert_supersede($item{msg_data}{$EXTEND_SERIAL_HEADER});
-    }
-
-    # set status as active or inactive based on begin and expiration headers
-    foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
-        if ( exists $item{msg_data}{$begin_hdr}) {
-            my $begin_dt = datestr2dt($item{msg_data}{$begin_hdr});
-            if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
-                # begin time has not yet been reached
-                alert_inactive($serial);
-                last;
-            }
+sub main
+{
+    # clear destination symlink
+    $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
+    if ( -e $paths->{outlink} ) {
+        if ( not -l $paths->{outlink} ) {
+            croak "destination file $paths->{outlink} is not a symlink";
         }
     }
-    foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER ) {
-        if ( exists $item{msg_data}{$end_hdr}) {
-            my $end_dt = datestr2dt($item{msg_data}{$end_hdr});
-            if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
+    $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
+
+    # perform SWPC request
+    do_swpc_request();
+
+    # read JSON into template data
+    # in case of JSON error, allow these to crash the program here before proceeding to symlinks
+    my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
+    my $json_text = File::Slurp::read_file($json_path);
+    $params->{json} = JSON::from_json $json_text;
+
+    # convert response JSON data to template-able result
+    foreach my $raw_item ( @{ $params->{json} } ) {
+        # start SWPC alert record
+        my %item;
+        foreach my $key (keys %$raw_item) {
+            $item{$key} = $raw_item->{$key};
+        }
+
+        # decode message text info further data fields - we can use msg_data after this point
+        parse_message(\%item);
+
+        # save alert indexed by serial number
+        if (not exists $item{msg_data}{$SERIAL_HEADER}) {
+            # if no serial number then the record is not a valid alert
+            next;
+        }
+        my $serial = $item{msg_data}{$SERIAL_HEADER};
+        $params->{alerts}{$serial} = \%item;
+
+        # process cancellation of another serial number
+        if ( exists $item{msg_data}{$CANCEL_SERIAL_HEADER}) {
+            alert_cancel($item{msg_data}{$CANCEL_SERIAL_HEADER});
+            alert_inactive($serial);
+            next;
+        }
+
+        # process extension/superseding of another serial number
+        if ( exists $item{msg_data}{$EXTEND_SERIAL_HEADER}) {
+            alert_supersede($item{msg_data}{$EXTEND_SERIAL_HEADER});
+        }
+
+        # set status as active or inactive based on begin and expiration headers
+        foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
+            if ( exists $item{msg_data}{$begin_hdr}) {
+                my $begin_dt = datestr2dt($item{msg_data}{$begin_hdr});
+                if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
+                    # begin time has not yet been reached
+                    alert_inactive($serial);
+                    last;
+                }
+            }
+        }
+        foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER ) {
+            if ( exists $item{msg_data}{$end_hdr}) {
+                my $end_dt = datestr2dt($item{msg_data}{$end_hdr});
+                if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
+                    # expiration time has been reached
+                    alert_inactive($serial);
+                    last;
+                }
+            }
+        }
+
+        # set status active or inactive if threshold reached within 72 hours ago
+        if ( exists $item{msg_data}{$THRESHOLD_REACHED_HEADER}) {
+            my $tr_dt = datestr2dt($item{msg_data}{$THRESHOLD_REACHED_HEADER});
+            if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => 72)) > 0) {
                 # expiration time has been reached
                 alert_inactive($serial);
                 last;
             }
         }
-    }
-
-    # set status active or inactive if threshold reached within 72 hours ago
-    if ( exists $item{msg_data}{$THRESHOLD_REACHED_HEADER}) {
-        my $tr_dt = datestr2dt($item{msg_data}{$THRESHOLD_REACHED_HEADER});
-        if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => 72)) > 0) {
-            # expiration time has been reached
-            alert_inactive($serial);
-            last;
+        if ( exists $item{msg_data}{$BEGIN_TIME_HEADER} and not exists $item{msg_data}{$END_TIME_HEADER}) {
+            my $bt_dt = datestr2dt($item{msg_data}{$BEGIN_TIME_HEADER});
+            if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => 72)) > 0) {
+                # expiration time has been reached
+                alert_inactive($serial);
+                last;
+            }
         }
-    }
-    if ( exists $item{msg_data}{$BEGIN_TIME_HEADER} and not exists $item{msg_data}{$END_TIME_HEADER}) {
-        my $bt_dt = datestr2dt($item{msg_data}{$BEGIN_TIME_HEADER});
-        if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => 72)) > 0) {
-            # expiration time has been reached
-            alert_inactive($serial);
-            last;
+
+        # activate the serial number if it is not expired or canceled
+        if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
+            alert_active($serial);
         }
     }
 
-    # activate the serial number if it is not expuired or canceled
-    if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
-        alert_active($serial);
+    # process template
+    my $config = {
+        INCLUDE_PATH => $OUTDIR,    # or list ref
+        INTERPOLATE  => 1,          # expand "$var" in plain text
+        POST_CHOMP   => 1,          # cleanup whitespace
+                                    #PRE_PROCESS  => 'header',        # prefix each template
+        EVAL_PERL    => 0,          # evaluate Perl code blocks
+    };
+    my $template = Template->new($config);
+    $template->process( $TEMPLATE, $params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+        or croak "template processing error: " . $template->error();
+
+    # in test mode, dump program status for debugging
+    test_dump();
+
+    # make a symlink to new data
+    if ( -l $paths->{outlink} ) {
+        unlink $paths->{outlink};
     }
+    symlink basename($paths->{outjson}), $paths->{outlink}
+        or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
 
-    #say STDERR 'debug(item): '.Dumper(\%item);
+    # clean up old data files
+    opendir( my $dh, $OUTDIR )
+        or croak "Can't open $OUTDIR: $!";
+    my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
+    closedir $dh;
+    if ( scalar @datafiles > 5 ) {
+        splice @datafiles, 0, 5;
+        foreach my $oldfile (@datafiles) {
+
+            # double check we're only removing old JSON files
+            next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
+
+            my $delpath = "$OUTDIR/$oldfile";
+            next if not -e $delpath;               # skip if the file doesn't exist
+            next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
+
+            is_interactive() and say "removing $delpath";
+            unlink $delpath;
+        }
+    }
+    return;
 }
 
-say STDERR 'debug(alert keys): '.join(" ", sort {$a <=> $b} keys %{$params->{alerts}});
-say STDERR 'debug(active): '.join(" ", sort {$a <=> $b} $params->{active}->elements());
-say STDERR 'debug(inactive): '.join(" ", sort {$a <=> $b} $params->{inactive}->elements());
-say STDERR 'debug(cancel): '.join(" ", sort {$a <=> $b} $params->{cancel}->elements());
-say STDERR 'debug(supersede): '.join(" ", sort {$a <=> $b} $params->{supersede}->elements());
+# run main
 
-# display active alerts
-foreach my $alert_serial ( sort {$a <=> $b} $params->{active}->elements()) {
-    say "alert $alert_serial: ".Dumper($params->{alerts}{$alert_serial});
-}
+main();
