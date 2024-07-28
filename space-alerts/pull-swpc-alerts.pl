@@ -35,7 +35,7 @@ GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
 # constants
 Readonly::Scalar my $TEST_MODE => $options{test}     // 0;
-Readonly::Scalar my $PROXY     => $options{proxy}    // undef;
+Readonly::Scalar my $PROXY     => $options{proxy}    // $ENV{PROXY} // $ENV{SOCKS_PROXY};
 Readonly::Scalar my $TIMEZONE  => $options{timezone} // "UTC";
 Readonly::Scalar my $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
 Readonly::Scalar my $SWPC_JSON_URL => "https://services.swpc.noaa.gov/products/alerts.json";
@@ -92,9 +92,10 @@ sub do_swpc_request
         }
         say "*** skip network access in test mode ***";
     } else {
-        my $url = sprintf $SWPC_JSON_URL, $params->{start_date};
+        my $url = $SWPC_JSON_URL;
         my ( $outstr, $errstr );
-        my @cmd = ( "/usr/bin/curl", "--proxy", $PROXY, "--output", $paths->{outjson}, $url );
+        my @cmd = ( "/usr/bin/curl", ( defined $PROXY ? ( "--proxy", $PROXY ) : ()),
+            "--output", $paths->{outjson}, $url );
         IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
 
         # check results of request
