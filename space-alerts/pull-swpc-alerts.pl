@@ -33,6 +33,10 @@ use Data::Dumper;
 my %options;
 GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
+# global template data & config
+my $paths  = {};
+my $params = {};
+
 # constants
 Readonly::Scalar my $TEST_MODE => $options{test}     // 0;
 Readonly::Scalar my $PROXY     => $options{proxy}    // $ENV{PROXY} // $ENV{SOCKS_PROXY};
@@ -57,15 +61,8 @@ Readonly::Scalar my $EXTEND_TIME_HEADER => "Now Valid Until";
 Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
 Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
 Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
-
-# global template data & config
-my $paths  = {};
-my $params = {};
-$params->{alerts} = {};
-$params->{active} = Set::Tiny->new();
-$params->{inactive} = Set::Tiny->new();
-$params->{cancel} = Set::Tiny->new();
-$params->{supersede} = Set::Tiny->new();
+Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
+Readonly::Array  my @LEVEL_COLORS => qw( #bbb #F6EB14 #FFC800 #FF9600 #FF0000 #C80000 ); # NOAA scales
 
 # convert date string to DateTime object
 sub datestr2dt
@@ -80,6 +77,13 @@ sub datestr2dt
     my $min = int(substr($time, 2, 2));
     return DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
         time_zone => $zone );
+}
+
+# convert DateTime to date/time/tz string
+sub dt2dttz
+{
+    my $dt = shift;
+    return $dt->ymd('-') . " " . $dt->hms(':') . " " . $dt->time_zone_short_name();
 }
 
 # perform SWPC request and save result in named file
@@ -258,11 +262,19 @@ sub test_dump
         }
         exit 0;
     }
-
+    return;
 }
 
 sub main
 {
+    # initialize globals
+    $params->{timestamp} = dt2dttz($TIMESTAMP);
+    $params->{alerts} = {};
+    $params->{active} = Set::Tiny->new();
+    $params->{inactive} = Set::Tiny->new();
+    $params->{cancel} = Set::Tiny->new();
+    $params->{supersede} = Set::Tiny->new();
+
     # clear destination symlink
     $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
     if ( -e $paths->{outlink} ) {
@@ -298,7 +310,26 @@ sub main
             next;
         }
         my $serial = $item{msg_data}{$SERIAL_HEADER};
+        $item{derived} = {};
+        $item{derived}{id} = $serial;  
         $params->{alerts}{$serial} = \%item;
+
+        # find and save title
+        foreach my $title_key ( @TITLE_KEYS ) {
+            if ( exists $item{msg_data}{$title_key}) {
+                $item{derived}{title} = $item{msg_data}{$title_key};
+                last;
+            }
+        }
+
+        # set row color based on NOAA scales
+        $item{derived}{level} = 0; # default setting for no known NOAA alert level (will be colored gray)
+        if (( exists $item{msg_data}{'NOAA Scale'}) and $item{msg_data}{'NOAA Scale'} =~ /^ [GMR] ([0-9]) \s/x ) {
+            $item{derived}{level} = int($1);
+        } elsif (( exists $item{derived}{title} ) and $item{derived}{title} =~ /Category \s [GMR] ([0-9]) \s/x ) {
+            $item{derived}{level} = int($1);
+        }
+        $item{derived}{bgcolor} = $LEVEL_COLORS[$item{derived}{level}];
 
         # process cancellation of another serial number
         if ( exists $item{msg_data}{$CANCEL_SERIAL_HEADER}) {
