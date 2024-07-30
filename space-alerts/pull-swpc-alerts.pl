@@ -99,7 +99,7 @@ sub do_swpc_request
     } else {
         my $url = $SWPC_JSON_URL;
         my ( $outstr, $errstr );
-        my @cmd = ( "/usr/bin/curl", ( defined $PROXY ? ( "--proxy", $PROXY ) : ()),
+        my @cmd = ( "/usr/bin/curl", "--silent", ( defined $PROXY ? ( "--proxy", $PROXY ) : ()),
             "--output", $paths->{outjson}, $url );
         IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
 

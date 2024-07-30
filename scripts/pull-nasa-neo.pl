@@ -112,7 +112,7 @@ sub do_neo_query
     } else {
         my $url = sprintf $NEO_API_URL, $params->{start_date};
         my ( $outstr, $errstr );
-        my @cmd = ( "/usr/bin/curl", "--proxy", $PROXY, "--output", $paths->{outjson}, $url );
+        my @cmd = ( "/usr/bin/curl", "--silent", "--proxy", $PROXY, "--output", $paths->{outjson}, $url );
         IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
 
         # check results of query
