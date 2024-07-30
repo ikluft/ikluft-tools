@@ -61,6 +61,7 @@ Readonly::Scalar my $EXTEND_TIME_HEADER => "Now Valid Until";
 Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
 Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
 Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
+Readonly::Scalar my $RETAIN_TIME => 48;  # hours to keep items with no end time (i.e. threshold reached alert)
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
 Readonly::Array  my @LEVEL_COLORS => qw( #bbb #F6EB14 #FFC800 #FF9600 #FF0000 #C80000 ); # NOAA scales
 
@@ -365,10 +366,10 @@ sub main
             }
         }
 
-        # set status active or inactive if threshold reached within 72 hours ago
+        # set status active or inactive if threshold reached within $RETAIN_TIME hours ago
         if ( exists $item{msg_data}{$THRESHOLD_REACHED_HEADER}) {
             my $tr_dt = datestr2dt($item{msg_data}{$THRESHOLD_REACHED_HEADER});
-            if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => 72)) > 0) {
+            if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
                 # expiration time has been reached
                 alert_inactive($serial);
                 last;
@@ -376,7 +377,7 @@ sub main
         }
         if ( exists $item{msg_data}{$BEGIN_TIME_HEADER} and not exists $item{msg_data}{$END_TIME_HEADER}) {
             my $bt_dt = datestr2dt($item{msg_data}{$BEGIN_TIME_HEADER});
-            if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => 72)) > 0) {
+            if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
                 # expiration time has been reached
                 alert_inactive($serial);
                 last;
