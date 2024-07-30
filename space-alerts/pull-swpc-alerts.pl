@@ -355,7 +355,7 @@ sub main
                 }
             }
         }
-        foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER ) {
+        foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER, $EXTEND_TIME_HEADER ) {
             if ( exists $item{msg_data}{$end_hdr}) {
                 my $end_dt = datestr2dt($item{msg_data}{$end_hdr});
                 if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
