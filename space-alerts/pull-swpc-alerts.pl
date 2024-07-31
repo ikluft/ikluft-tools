@@ -277,34 +277,73 @@ sub test_dump
     return;
 }
 
-sub main
+# save alert status - active, inactive, canceled, superseded
+sub save_alert_status
 {
-    # initialize globals
-    $params->{timestamp} = dt2dttz($TIMESTAMP);
-    $params->{alerts} = {};
-    $params->{active} = Set::Tiny->new();
-    $params->{inactive} = Set::Tiny->new();
-    $params->{cancel} = Set::Tiny->new();
-    $params->{supersede} = Set::Tiny->new();
+    my ( $item_ref, $serial ) = @_;
 
-    # clear destination symlink
-    $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
-    if ( -e $paths->{outlink} ) {
-        if ( not -l $paths->{outlink} ) {
-            croak "destination file $paths->{outlink} is not a symlink";
+    # process cancellation of another serial number
+    if ( exists $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER}) {
+        alert_cancel($item_ref->{msg_data}{$CANCEL_SERIAL_HEADER});
+        alert_inactive($serial);
+        next;
+    }
+
+    # process extension/superseding of another serial number
+    if ( exists $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER}) {
+        alert_supersede($item_ref->{msg_data}{$EXTEND_SERIAL_HEADER});
+    }
+
+    # set status as active or inactive based on begin and expiration headers
+    foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
+        if ( exists $item_ref->{msg_data}{$begin_hdr}) {
+            my $begin_dt = datestr2dt($item_ref->{msg_data}{$begin_hdr});
+            if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
+                # begin time has not yet been reached
+                alert_inactive($serial);
+                last;
+            }
         }
     }
-    $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
+    foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER, $EXTEND_TIME_HEADER ) {
+        if ( exists $item_ref->{msg_data}{$end_hdr}) {
+            my $end_dt = datestr2dt($item_ref->{msg_data}{$end_hdr});
+            if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
+                # expiration time has been reached
+                alert_inactive($serial);
+                last;
+            }
+        }
+    }
 
-    # perform SWPC request
-    do_swpc_request();
+    # set status active or inactive if threshold reached within $RETAIN_TIME hours ago
+    if ( exists $item_ref->{msg_data}{$THRESHOLD_REACHED_HEADER}) {
+        my $tr_dt = datestr2dt($item_ref->{msg_data}{$THRESHOLD_REACHED_HEADER});
+        if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
+            # expiration time has been reached
+            alert_inactive($serial);
+            last;
+        }
+    }
+    if ( exists $item_ref->{msg_data}{$BEGIN_TIME_HEADER} and not exists $item_ref->{msg_data}{$END_TIME_HEADER}) {
+        my $bt_dt = datestr2dt($item_ref->{msg_data}{$BEGIN_TIME_HEADER});
+        if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
+            # expiration time has been reached
+            alert_inactive($serial);
+            last;
+        }
+    }
 
-    # read JSON into template data
-    # in case of JSON error, allow these to crash the program here before proceeding to symlinks
-    my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
-    my $json_text = File::Slurp::read_file($json_path);
-    $params->{json} = JSON::from_json $json_text;
+    # activate the serial number if it is not expired or canceled
+    if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
+        alert_active($serial);
+    }
+    return;
+}
 
+# process alert data - extract message header information
+sub process_alerts
+{
     # convert response JSON data to template-able result
     foreach my $raw_item ( @{ $params->{json} } ) {
         # start SWPC alert record
@@ -343,63 +382,43 @@ sub main
         }
         $item{derived}{bgcolor} = $LEVEL_COLORS[$item{derived}{level}];
 
-        # process cancellation of another serial number
-        if ( exists $item{msg_data}{$CANCEL_SERIAL_HEADER}) {
-            alert_cancel($item{msg_data}{$CANCEL_SERIAL_HEADER});
-            alert_inactive($serial);
-            next;
-        }
+        # save alert status - active, inactive, canceled, superseded
+        save_alert_status(\%item, $serial);
+    }
 
-        # process extension/superseding of another serial number
-        if ( exists $item{msg_data}{$EXTEND_SERIAL_HEADER}) {
-            alert_supersede($item{msg_data}{$EXTEND_SERIAL_HEADER});
-        }
+    return;
+}
 
-        # set status as active or inactive based on begin and expiration headers
-        foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
-            if ( exists $item{msg_data}{$begin_hdr}) {
-                my $begin_dt = datestr2dt($item{msg_data}{$begin_hdr});
-                if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
-                    # begin time has not yet been reached
-                    alert_inactive($serial);
-                    last;
-                }
-            }
-        }
-        foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER, $EXTEND_TIME_HEADER ) {
-            if ( exists $item{msg_data}{$end_hdr}) {
-                my $end_dt = datestr2dt($item{msg_data}{$end_hdr});
-                if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
-                    # expiration time has been reached
-                    alert_inactive($serial);
-                    last;
-                }
-            }
-        }
+sub main
+{
+    # initialize globals
+    $params->{timestamp} = dt2dttz($TIMESTAMP);
+    $params->{alerts} = {};
+    $params->{active} = Set::Tiny->new();
+    $params->{inactive} = Set::Tiny->new();
+    $params->{cancel} = Set::Tiny->new();
+    $params->{supersede} = Set::Tiny->new();
 
-        # set status active or inactive if threshold reached within $RETAIN_TIME hours ago
-        if ( exists $item{msg_data}{$THRESHOLD_REACHED_HEADER}) {
-            my $tr_dt = datestr2dt($item{msg_data}{$THRESHOLD_REACHED_HEADER});
-            if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
-                # expiration time has been reached
-                alert_inactive($serial);
-                last;
-            }
-        }
-        if ( exists $item{msg_data}{$BEGIN_TIME_HEADER} and not exists $item{msg_data}{$END_TIME_HEADER}) {
-            my $bt_dt = datestr2dt($item{msg_data}{$BEGIN_TIME_HEADER});
-            if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
-                # expiration time has been reached
-                alert_inactive($serial);
-                last;
-            }
-        }
-
-        # activate the serial number if it is not expired or canceled
-        if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
-            alert_active($serial);
+    # clear destination symlink
+    $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
+    if ( -e $paths->{outlink} ) {
+        if ( not -l $paths->{outlink} ) {
+            croak "destination file $paths->{outlink} is not a symlink";
         }
     }
+    $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
+
+    # perform SWPC request
+    do_swpc_request();
+
+    # read JSON into template data
+    # in case of JSON error, allow these to crash the program here before proceeding to symlinks
+    my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
+    my $json_text = File::Slurp::read_file($json_path);
+    $params->{json} = JSON::from_json $json_text;
+
+    # convert response JSON data to template-able result
+    process_alerts();
 
     # process template
     my $config = {
