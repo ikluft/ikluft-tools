@@ -61,6 +61,7 @@ Readonly::Scalar my $EXTEND_TIME_HEADER => "Now Valid Until";
 Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
 Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
 Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
+Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
 Readonly::Scalar my $RETAIN_TIME => 48;  # hours to keep items with no end time (i.e. threshold reached alert)
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
 Readonly::Array  my @LEVEL_COLORS => qw( #bbb #F6EB14 #FFC800 #FF9600 #FF0000 #C80000 ); # NOAA scales
@@ -144,9 +145,19 @@ sub parse_message
             undef $last_header;
             next;
         }
-        if ( $msg_lines[$line]  =~ /^\s*([^:]*)[:]\s*(.*)/x ) {
-            $item_ref->{msg_data}{$1} = $2;
-            $last_header = $1;
+        if ( $msg_lines[$line]  =~ /^ \s* ([^:]*) : \s* (.*)/x ) {
+            my ( $key, $value ) = ( $1, $2 );
+            $item_ref->{msg_data}{$key} = $value;
+            $last_header = $key;
+
+            # check for continuation line (ends with ':')
+            if ( $msg_lines[$line]  =~ /^ \s* [^:]* : $/x ) {
+                # bring in next line for continuation
+                if ( exists $msg_lines[$line+1]) {
+                    $item_ref->{msg_data}{$key} = $msg_lines[$line+1];
+                    $line++;
+                }
+            }
             next;
         }
         if ( defined $last_header ) {
