@@ -62,7 +62,7 @@ Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
 Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
 Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
 Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
-Readonly::Scalar my $RETAIN_TIME => 48;  # hours to keep items with no end time (i.e. threshold reached alert)
+Readonly::Scalar my $RETAIN_TIME => 24;  # hours to keep items with no end time (i.e. threshold reached alert)
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
 Readonly::Array  my @LEVEL_COLORS => qw( #bbb #F6EB14 #FFC800 #FF9600 #FF0000 #C80000 ); # NOAA scales
 
@@ -277,6 +277,34 @@ sub test_dump
     return;
 }
 
+# if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
+sub date_from_level_forecast
+{
+    my ( $item_ref, $serial ) = @_;
+    my $forecast_line = $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER};
+    $forecast_line =~ /([A-Z][a-z][a-z] \s+ [0-9]+ : \s+ \S+ \s+ \([^\)]+\))/gx;
+    my $last_date;
+    foreach my $by_day ( @{^CAPTURE} ) {
+        if ( $by_day =~ /([A-Z][a-z][a-z]) \s+ ([0-9]+) : \s+ (\S+) \s+ \([^\)]+\)/x ) {
+            my $mon = int($MONTH_NUM{lc $1});
+            my $day = int($2);
+            my $mag = $3;
+            if ( $mag ne "None" ) {
+                $last_date = [ $mon, $day ];
+            }
+        }
+    }
+    if ( defined $last_date ) {
+        my $issue_year = int(substr($item_ref->{issue_datetime}, 0, 4));
+        my $issue_month = int(substr($item_ref->{issue_datetime}, 5, 2));
+        my $expire_year = $issue_year + (( $issue_month == 12 and $last_date->[0] == 1 ) ? 1 : 0 );
+        my $expire_dt = DateTime->new( year => $expire_year, month => $last_date->[0], day => $last_date->[1],
+            hour => 23, minute => 59, time_zone => 'UTC' );
+        $item_ref->{derived}{end} = $expire_dt;
+    }
+    return;
+}
+
 # save alert status - active, inactive, canceled, superseded
 sub save_alert_status
 {
@@ -286,7 +314,7 @@ sub save_alert_status
     if ( exists $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER}) {
         alert_cancel($item_ref->{msg_data}{$CANCEL_SERIAL_HEADER});
         alert_inactive($serial);
-        next;
+        return;
     }
 
     # process extension/superseding of another serial number
@@ -294,43 +322,50 @@ sub save_alert_status
         alert_supersede($item_ref->{msg_data}{$EXTEND_SERIAL_HEADER});
     }
 
-    # set status as active or inactive based on begin and expiration headers
+    # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
+    if ( exists $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER}) {
+        date_from_level_forecast($item_ref, $serial);
+    }
+
+    # set status as inactive based on begin and expiration headers
     foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
         if ( exists $item_ref->{msg_data}{$begin_hdr}) {
             my $begin_dt = datestr2dt($item_ref->{msg_data}{$begin_hdr});
-            if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
-                # begin time has not yet been reached
-                alert_inactive($serial);
-                last;
-            }
+            $item_ref->{derived}{begin} = $begin_dt;
+            last;
         }
     }
     foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER, $EXTEND_TIME_HEADER ) {
         if ( exists $item_ref->{msg_data}{$end_hdr}) {
             my $end_dt = datestr2dt($item_ref->{msg_data}{$end_hdr});
-            if (DateTime->compare(DateTime->now(), $end_dt) > 0) {
-                # expiration time has been reached
-                alert_inactive($serial);
-                last;
-            }
+            $item_ref->{derived}{end} = $end_dt;
+            last;
         }
     }
 
     # set status active or inactive if threshold reached within $RETAIN_TIME hours ago
     if ( exists $item_ref->{msg_data}{$THRESHOLD_REACHED_HEADER}) {
         my $tr_dt = datestr2dt($item_ref->{msg_data}{$THRESHOLD_REACHED_HEADER});
-        if (DateTime->compare(DateTime->now(), $tr_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
-            # expiration time has been reached
-            alert_inactive($serial);
-            last;
-        }
+        $item_ref->{derived}{end} = $tr_dt;
     }
     if ( exists $item_ref->{msg_data}{$BEGIN_TIME_HEADER} and not exists $item_ref->{msg_data}{$END_TIME_HEADER}) {
         my $bt_dt = datestr2dt($item_ref->{msg_data}{$BEGIN_TIME_HEADER});
-        if (DateTime->compare(DateTime->now(), $bt_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
+        $item_ref->{derived}{begin} = $bt_dt;
+    }
+
+    # set status as inactive if outside begin and end times
+    if ( exists $item_ref->{derived}{begin}) {
+        my $begin_dt = $item_ref->{derived}{begin};
+        if (DateTime->compare(DateTime->now(), $begin_dt) < 0) {
+            # begin time has not yet been reached
+            alert_inactive($serial);
+        }
+    }
+    if ( exists $item_ref->{derived}{end}) {
+        my $end_dt = $item_ref->{derived}{end};
+        if (DateTime->compare(DateTime->now(), $end_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) > 0) {
             # expiration time has been reached
             alert_inactive($serial);
-            last;
         }
     }
 
