@@ -64,9 +64,9 @@ Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
 Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
 Readonly::Scalar my $OBSERVED_HEADER => "Observed";
 Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
-Readonly::Scalar my $RETAIN_TIME => 24;  # hours to keep items with no end time (i.e. threshold reached alert)
+Readonly::Scalar my $RETAIN_TIME => 12;  # hours to keep items after expiration
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
-Readonly::Array  my @LEVEL_COLORS => qw( #bbb #F6EB14 #FFC800 #FF9600 #FF0000 #C80000 ); # NOAA scales
+Readonly::Array  my @LEVEL_COLORS => ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" ); # NOAA scales
 
 # convert date string to DateTime object
 sub datestr2dt
