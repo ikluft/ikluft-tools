@@ -488,8 +488,8 @@ sub main
         or croak "Can't open $OUTDIR: $!";
     my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
     closedir $dh;
-    if ( scalar @datafiles > 5 ) {
-        splice @datafiles, 0, 5;
+    if ( scalar @datafiles > 15 ) {
+        splice @datafiles, 0, 15;
         foreach my $oldfile (@datafiles) {
 
             # double check we're only removing old JSON files
@@ -497,7 +497,7 @@ sub main
 
             my $delpath = "$OUTDIR/$oldfile";
             next if not -e $delpath;               # skip if the file doesn't exist
-            next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
+            next if ( ( -M $delpath ) < 1.5 );     # don't remove files newer than 36 hours
 
             is_interactive() and say "removing $delpath";
             unlink $delpath;
