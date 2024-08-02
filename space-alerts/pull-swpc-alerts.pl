@@ -54,15 +54,22 @@ Readonly::Hash   my %MONTH_NUM => (
     "sep" => 9, "oct" => 10, "nov" => 11, "dec" => 12,
 );
 Readonly::Scalar my $SERIAL_HEADER => "Serial Number";
-Readonly::Scalar my $BEGIN_TIME_HEADER => "Begin Time";
-Readonly::Scalar my $VALID_FROM_HEADER => "Valid From";
-Readonly::Scalar my $VALID_TO_HEADER => "Valid To";
-Readonly::Scalar my $END_TIME_HEADER => "End Time";
-Readonly::Scalar my $EXTEND_TIME_HEADER => "Now Valid Until";
+Readonly::Array  my @BEGIN_HEADERS => (
+    "Begin Time",
+    "Valid From",
+);
+Readonly::Array my @END_HEADERS => (
+    "Valid To",
+    "End Time",
+    "Now Valid Until",
+);
 Readonly::Scalar my $EXTEND_SERIAL_HEADER => "Extension to Serial Number";
 Readonly::Scalar my $CANCEL_SERIAL_HEADER => "Cancel Serial Number";
-Readonly::Scalar my $THRESHOLD_REACHED_HEADER => "Threshold Reached";
-Readonly::Scalar my $OBSERVED_HEADER => "Observed";
+Readonly::Array  my @INSTANTANEOUS_HEADERS => (
+    "Threshold Reached",
+    "Observed",
+    "IP Shock Passage Observed",
+);
 Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
 Readonly::Scalar my $RETAIN_TIME => 12;  # hours to keep items after expiration
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
@@ -330,14 +337,14 @@ sub save_alert_status
     date_from_level_forecast($item_ref, $serial);
 
     # set status as inactive based on begin and expiration headers
-    foreach my $begin_hdr ( $BEGIN_TIME_HEADER, $VALID_FROM_HEADER ) {
+    foreach my $begin_hdr ( @BEGIN_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$begin_hdr}) {
             my $begin_dt = datestr2dt($item_ref->{msg_data}{$begin_hdr});
             $item_ref->{derived}{begin} = $begin_dt->stringify();
             last;
         }
     }
-    foreach my $end_hdr ( $END_TIME_HEADER, $VALID_TO_HEADER, $EXTEND_TIME_HEADER ) {
+    foreach my $end_hdr ( @END_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$end_hdr}) {
             my $end_dt = datestr2dt($item_ref->{msg_data}{$end_hdr});
             $item_ref->{derived}{end} = $end_dt->stringify();
@@ -346,7 +353,7 @@ sub save_alert_status
     }
 
     # set times for instantaneous events
-    foreach my $instant_hdr ( $THRESHOLD_REACHED_HEADER, $OBSERVED_HEADER ) {
+    foreach my $instant_hdr ( @INSTANTANEOUS_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$instant_hdr}) {
             my $tr_dt = datestr2dt($item_ref->{msg_data}{$instant_hdr});
             $item_ref->{derived}{end} = $tr_dt->stringify();
