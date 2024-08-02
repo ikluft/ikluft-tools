@@ -11,7 +11,7 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
-use 5.038;  # Perl 5.38 added //= operator for initialization
+use Modern::Perl qw(2015);
 use feature qw(say try);
 use boolean ':all';
 use Readonly;
@@ -131,14 +131,12 @@ sub do_swpc_request
             croak "JSON data file " . $paths->{outjson} . " is empty";
         }
         if ($errstr) {
-            say "stderr from command: $errstr";
-            $params->{curl_stderr} //= [];
-            push @{$params->{curl_stderr}}, $errstr;
+            say STDERR "stderr from command: $errstr";
+            $params->{curl_stderr} = $errstr;
         }
         if ($outstr) {
-            say "stdout from command: $outstr";
-            $params->{curl_stdout} //= [];
-            push @{$params->{curl_stdout}}, $outstr;
+            say STDERR "stdout from command: $outstr";
+            $params->{curl_stdout} = $outstr;
         }
     }
     return;
