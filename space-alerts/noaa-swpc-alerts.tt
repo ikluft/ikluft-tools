@@ -13,7 +13,7 @@
             <table class="space-alert-table">
                 <thead>
                     <tr>
-                        <th colspan="5">Current NOAA space weather alerts</th>
+                        <th colspan="3">Current NOAA space weather alerts</th>
                     </tr>
                     <tr class="secondary">
                         <th>id</th>
@@ -22,15 +22,21 @@
                     </tr>
                 </thead>
                 <tbody>
+                    [% count = 0 %]
                     [% FOREACH alert_id IN active.elements.nsort %]
                     [% alert = alerts.$alert_id %]
                     <tr bgcolor="[% alert.derived.bgcolor %]">
+                        [% count = count + 1 %]
                         <td class="no-padding">[% alert.derived.id %]</td>
                         <td class="no-padding" title="[% HTML.escape(alert.message) %]">[% HTML.escape(alert.derived.title) %]</td>
                         <td class="no-padding" title="begin: [% alert.derived.exists('begin') ? alert.derived.begin : '&cross;' %]&NewLine;end: [% alert.derived.exists('end') ? alert.derived.end : '&cross;' %]"><small>[% alert.issue_datetime %]</small></td>
                     </tr>
                     [% END %]
-                    <!-- TODO: format data records into table rows -->
+                    [% IF count == 0 %]
+                    <tr bgcolor="#bbb">
+                        <td class="no-padding" colspan="3"><center><i>no current NOAA SWPC alerts</i></center></td>
+                    </tr>
+                    [% END %]
                 </tbody>
                 <tfoot>
                     <tr>
