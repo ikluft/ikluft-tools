@@ -34,7 +34,7 @@
                     [% END %]
                     [% IF count == 0 %]
                     <tr bgcolor="#bbb">
-                        <td class="no-padding" colspan="3"><center><i>no current NOAA SWPC alerts</i></center></td>
+                        <td class="no-padding" colspan="3"><center><i>&emptyset;&nbsp;no current NOAA SWPC alerts&nbsp;&emptyset;</i></center></td>
                     </tr>
                     [% END %]
                 </tbody>
