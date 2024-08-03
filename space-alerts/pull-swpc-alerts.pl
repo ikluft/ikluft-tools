@@ -11,9 +11,9 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
-use Modern::Perl qw(2015);
-use feature qw(say try);
-use boolean ':all';
+use Modern::Perl qw(2023);  # Perl 5.36 allows built-in boolean types
+use experimental qw(builtin);
+use builtin qw(true false);
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
@@ -32,16 +32,17 @@ use Data::Dumper;
 
 # parse command-line
 my %options;
-GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
+GetOptions( \%options, "test|test_mode", "verbose", "proxy:s", "timezone|tz:s" );
 
 # global template data & config
 my $paths  = {};
 my $params = {};
 
 # constants
-Readonly::Scalar my $TEST_MODE => $options{test}     // 0;
-Readonly::Scalar my $PROXY     => $options{proxy}    // $ENV{PROXY} // $ENV{SOCKS_PROXY};
-Readonly::Scalar my $TIMEZONE  => $options{timezone} // "UTC";
+Readonly::Scalar my $TEST_MODE => $options{test}       // false;
+Readonly::Scalar my $VERBOSE_MODE => $options{verbose} // false;
+Readonly::Scalar my $PROXY     => $options{proxy}      // $ENV{PROXY} // $ENV{SOCKS_PROXY};
+Readonly::Scalar my $TIMEZONE  => $options{timezone}   // "UTC";
 Readonly::Scalar my $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
 Readonly::Scalar my $SWPC_JSON_URL => "https://services.swpc.noaa.gov/products/alerts.json";
 Readonly::Scalar my $OUTDIR   => $FindBin::Bin;
@@ -90,6 +91,15 @@ sub datestr2dt
         time_zone => $zone );
 }
 
+# convert issue time to DateTime
+sub issue2dt
+{
+    my $date_str = shift;
+    my ( $year, $mon, $day, $hour, $min, $sec ) = split qr([-:\s])x, $date_str;
+    return DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
+        second => int($sec), time_zone => "UTC" );
+}
+
 # convert DateTime to date/time/tz string
 sub dt2dttz
 {
@@ -105,7 +115,7 @@ sub do_swpc_request
         if ( not -e $paths->{outlink} ) {
             croak "test mode requires $paths->{outlink} to exist";
         }
-        say "*** skip network access in test mode ***";
+        say STDERR "*** skip network access in test mode ***";
     } else {
         my $url = $SWPC_JSON_URL;
         my ( $outstr, $errstr );
@@ -270,6 +280,11 @@ sub alert_status
 # in test mode, dump program status for debugging
 sub test_dump
 {
+    # in verbose mode, dump the params hash
+    if ( $VERBOSE_MODE ) {
+        say STDERR Dumper($params);
+    }
+
     # in test mode, dump status then exit before messing with symlink or removing old files
     if ($TEST_MODE) {
         say 'test mode';
@@ -307,8 +322,9 @@ sub date_from_level_forecast
             }
         }
         if ( defined $last_date ) {
-            my $issue_year = int(substr($item_ref->{issue_datetime}, 0, 4));
-            my $issue_month = int(substr($item_ref->{issue_datetime}, 5, 2));
+            my $issue_dt = issue2dt($item_ref->{issue_datetime});
+            my $issue_year = $issue_dt->year();
+            my $issue_month = $issue_dt->month();
             my $expire_year = $issue_year + (( $issue_month == 12 and $last_date->[0] == 1 ) ? 1 : 0 );
             my $expire_dt = DateTime->new( year => $expire_year, month => $last_date->[0], day => $last_date->[1],
                 hour => 23, minute => 59, time_zone => 'UTC' );
@@ -335,10 +351,7 @@ sub save_alert_status
         alert_supersede($item_ref->{msg_data}{$EXTEND_SERIAL_HEADER});
     }
 
-    # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
-    date_from_level_forecast($item_ref, $serial);
-
-    # set status as inactive based on begin and expiration headers
+    # set begin and expiration times based on various headers to that effect
     foreach my $begin_hdr ( @BEGIN_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$begin_hdr}) {
             my $begin_dt = datestr2dt($item_ref->{msg_data}{$begin_hdr});
@@ -363,28 +376,37 @@ sub save_alert_status
         }
     }
 
-    # when begin time was set with no end, copy begin time to end time
-    if ( exists $item_ref->{derived}{begin} and not exists $item_ref->{derived}{end}) {
+    # if end time was set but no begin, use issue time
+    if (( not exists $item_ref->{derived}{begin}) and ( exists $item_ref->{derived}{end})) {
+        $item_ref->{derived}{begin} = issue2dt($item_ref->{issue_datetime})->stringify();
+    }
+
+    # if begin time was set but no end, copy begin time to end time
+    if (( exists $item_ref->{derived}{begin}) and ( not exists $item_ref->{derived}{end})) {
         $item_ref->{derived}{end} = $item_ref->{derived}{begin};
     }
+
+    # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
+    date_from_level_forecast($item_ref, $serial);
 
     # set status as inactive if outside begin and end times
     if ( exists $item_ref->{derived}{begin}) {
         my $begin_dt = DateTime::Format::ISO8601->parse_datetime($item_ref->{derived}{begin});
-        if (DateTime->now() < $begin_dt) {
+        if ($TIMESTAMP < $begin_dt) {
             # begin time has not yet been reached
             alert_inactive($serial);
         }
     }
     if ( exists $item_ref->{derived}{end}) {
-        my $end_dt = DateTime::Format::ISO8601->parse_datetime($item_ref->{derived}{end});
-        if (DateTime->now() > $end_dt + DateTime::Duration->new(hours => $RETAIN_TIME)) {
+        my $end_dt = DateTime::Format::ISO8601->parse_datetime($item_ref->{derived}{end})
+            + DateTime::Duration->new(hours => $RETAIN_TIME);
+        if ($TIMESTAMP > $end_dt) {
             # expiration time has been reached
             alert_inactive($serial);
         }
     }
 
-    # activate the serial number if it is not expired or canceled
+    # activate the serial number if it is not expired, canceled or superseded
     if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
         alert_active($serial);
     }
@@ -512,6 +534,7 @@ sub main
             unlink $delpath;
         }
     }
+
     return;
 }
 
