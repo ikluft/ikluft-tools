@@ -23,7 +23,7 @@
                 </thead>
                 <tbody>
                     [% count = 0 %]
-                    [% FOREACH alert_id IN active.elements.nsort %]
+                    [% FOREACH alert_id IN active %]
                     [% alert = alerts.$alert_id %]
                     <tr bgcolor="[% alert.derived.bgcolor %]">
                         [% count = count + 1 %]

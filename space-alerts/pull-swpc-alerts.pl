@@ -37,6 +37,7 @@ GetOptions( \%options, "test|test_mode", "verbose", "proxy:s", "timezone|tz:s" )
 # global template data & config
 my $paths  = {};
 my $params = {};
+my %msgid;
 
 # constants
 Readonly::Scalar my $TEST_MODE => $options{test}       // false;
@@ -49,11 +50,18 @@ Readonly::Scalar my $OUTDIR   => $FindBin::Bin;
 Readonly::Scalar my $OUTJSON  => "swpc-data.json";
 Readonly::Scalar my $TEMPLATE => "noaa-swpc-alerts.tt";
 Readonly::Scalar my $OUTHTML  => "noaa-swpc-alerts.html";
+Readonly::Scalar my $S_NONE   => "none";
+Readonly::Scalar my $S_ACTIVE => "active";
+Readonly::Scalar my $S_INACTIVE => "inactive";
+Readonly::Scalar my $S_CANCEL => "cancel";
+Readonly::Scalar my $S_SUPERSEDE => "supersede";
 Readonly::Hash   my %MONTH_NUM => (
     "jan" => 1, "feb" => 2, "mar" => 3, "apr" => 4,
     "may" => 5, "jun" => 6, "jul" => 7, "aug" => 8,
     "sep" => 9, "oct" => 10, "nov" => 11, "dec" => 12,
 );
+Readonly::Scalar my $ISSUE_HEADER => "Issue Time";
+Readonly::Scalar my $ORIG_ISSUE_HEADER => "Original Issue Time";
 Readonly::Scalar my $SERIAL_HEADER => "Serial Number";
 Readonly::Array  my @BEGIN_HEADERS => (
     "Begin Time",
@@ -194,87 +202,124 @@ sub parse_message
     return;
 }
 
-# set an alert as active
-sub alert_active
+# get an internal message id number from an alert (because Serial Number header turned out not to be unique)
+sub get_msgid
 {
-    my $serial = shift;
-    if ( not exists $params->{alerts}{$serial} ) {
-        croak "attempt to set as active a non-existent alert: $serial";
+    my $item_ref = shift;
+    my $serial = $item_ref->{msg_data}{$SERIAL_HEADER};
+    my $issue = $item_ref->{msg_data}{$ISSUE_HEADER};
+    my $msg_key = $serial."_".$issue;
+    if ( exists $msgid{$msg_key}) {
+        return $msgid{$msg_key};
     }
 
-    # if a cancellation was issued for this serial number, do not activate it
+    # generate new msgid
+    my $msg_count = scalar keys %msgid;
+    my $new_msgid = sprintf "%04x", $msg_count;
+    if ( exists $msgid{$new_msgid}) {
+        say STDERR "data dump due to non-unique msgid $new_msgid:";
+        say STDERR Dumper($params);
+        confess "message id $new_msgid already exists when it should be uniquely new";
+    }
+    $msgid{$msg_key} = $new_msgid;
+    return $new_msgid;
+}
+
+# set status of an alert
+sub alert_set
+{
+    my ( $msgid, $state_str ) = @_;
+    if ( not exists $params->{alerts}{$msgid} ) {
+        croak "attempt to set as $state_str a non-existent alert: $msgid";
+    }
+    my $alert = $params->{alerts}{$msgid};
+    my $serial = $alert->{msg_data}{$SERIAL_HEADER};
+
+    # skip if serial number is marked as canceled or superseded
     if ($params->{cancel}->contains($serial)) {
-        $params->{active}->remove($serial);
-        $params->{inactive}->remove($serial);
+        $alert->{derived}{status} = $S_CANCEL;
         return;
     }
-
-    # if this serial number was superseded, do not activate it
     if ($params->{supersede}->contains($serial)) {
-        $params->{active}->remove($serial);
-        $params->{inactive}->remove($serial);
+        $alert->{derived}{status} = $S_SUPERSEDE;
         return;
     }
 
-    # set alert as active
-    $params->{active}->insert($serial);
-    if ($params->{inactive}->contains($serial)) {
-        $params->{inactive}->remove($serial);
-    }
+    # set alert state
+    $alert->{derived}{status} = $state_str;
+    return;
+
+}
+
+# set an alert as active
+sub alert_set_active
+{
+    my $msgid = shift;
+    alert_set( $msgid, $S_ACTIVE );
     return;
 }
 
 # set an alert as inactive
-sub alert_inactive
+sub alert_set_inactive
 {
-    my $serial = shift;
-    if ( not exists $params->{alerts}{$serial} ) {
-        croak "attempt to set as inactive a non-existent alert: $serial";
-    }
-    $params->{inactive}->insert($serial);
-    if ($params->{active}->contains($serial)) {
-        $params->{active}->remove($serial);
-    }
+    my $msgid = shift;
+    alert_set( $msgid, $S_INACTIVE );
     return;
 }
 
-# set an alert as canceled, which may be set before the record is read
-sub alert_cancel
+# set an alert as canceled
+sub alert_set_cancel
+{
+    my $msgid = shift;
+    alert_set( $msgid, $S_CANCEL );
+    return;
+}
+
+# set an alert as superseded
+sub alert_set_supersede
+{
+    my $msgid = shift;
+    alert_set( $msgid, $S_SUPERSEDE );
+    return;
+}
+
+# set a serial number as canceled, which may be set before the alert is read
+sub serial_cancel
 {
     my $serial = shift;
+
+    # add msgid to cancel set
     $params->{cancel}->insert($serial);
-    if ($params->{active}->contains($serial)) {
-        $params->{active}->remove($serial);
-    }
     return;
 }
 
-# set an alert as superseded, which may be set before the record is read
-sub alert_supersede
+# set a serial number as superseded, which may be set before the alert is read
+sub serial_supersede
 {
     my $serial = shift;
+
+    # add msgid to supersede set
     $params->{supersede}->insert($serial);
-    if ($params->{active}->contains($serial)) {
-        $params->{active}->remove($serial);
-    }
     return;
 }
 
 # query status of an alert
-sub alert_is_active { my $serial = shift; return $params->{active}->contains($serial); }
-sub alert_is_inactive { my $serial = shift; return $params->{inactive}->contains($serial); }
-sub alert_is_cancel { my $serial = shift; return $params->{cancel}->contains($serial); }
-sub alert_is_supersede { my $serial = shift; return $params->{supersede}->contains($serial); }
-sub alert_status
+sub alert_is {
+    my ( $msgid, $state_str ) = @_;
+    my $alert = $params->{alerts}{$msgid};
+    return $alert->{derived}{status} eq $state_str;
+}
+sub alert_is_none { my $msgid = shift; return alert_is( $msgid, $S_NONE ); }
+sub alert_is_active { my $msgid = shift; return alert_is( $msgid, $S_ACTIVE ); }
+sub alert_is_inactive { my $msgid = shift; return alert_is( $msgid, $S_INACTIVE ); }
+sub alert_is_cancel { my $msgid = shift; return alert_is( $msgid, $S_CANCEL ); }
+sub alert_is_supersede { my $msgid = shift; return alert_is( $msgid, $S_SUPERSEDE ); }
+
+# save list of active alert msgid's
+sub save_active_alerts
 {
-    my $serial = shift;
-    my @states;
-    foreach my $set_type ( qw(active inactive cancel supersede)) {
-        if ( $params->{$set_type}->contains($serial)) {
-            push @states, $set_type;
-        }
-    }
-    return join(" ", @states);
+    $params->{active} = [ sort grep { alert_is_active($_) } keys %{$params->{alerts}}];
+    return;
 }
 
 # in test mode, dump program status for debugging
@@ -288,14 +333,13 @@ sub test_dump
     # in test mode, dump status then exit before messing with symlink or removing old files
     if ($TEST_MODE) {
         say 'test mode';
-        say '* alert keys: '.join(" ", sort {$a <=> $b} keys %{$params->{alerts}});
-        say '* active: '.join(" ", sort {$a <=> $b} $params->{active}->elements());
-        say '* inactive: '.join(" ", sort {$a <=> $b} $params->{inactive}->elements());
-        say '* cancel: '.join(" ", sort {$a <=> $b} $params->{cancel}->elements());
-        say '* supersede: '.join(" ", sort {$a <=> $b} $params->{supersede}->elements());
+        say '* alert keys: '.join(" ", sort keys %{$params->{alerts}});
+        say '* active '.join(" ", @{$params->{active}});
+        say '* cancel: '.join(" ", sort $params->{cancel}->elements());
+        say '* supersede: '.join(" ", sort $params->{supersede}->elements());
 
         # display active alerts
-        foreach my $alert_serial ( sort {$a <=> $b} $params->{active}->elements()) {
+        foreach my $alert_serial ( @{$params->{active}}) {
             say "alert $alert_serial: ".Dumper($params->{alerts}{$alert_serial});
         }
         exit 0;
@@ -306,7 +350,7 @@ sub test_dump
 # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
 sub date_from_level_forecast
 {
-    my ( $item_ref, $serial ) = @_;
+    my ( $item_ref ) = @_;
     if ( exists $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER}) {
         my $forecast_line = $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER};
         my @matches = ( $forecast_line =~ /([A-Z][a-z][a-z] \s+ [0-9]+ : \s+ [^\s]+ \s+ \([^\)]+\))/gx );
@@ -337,18 +381,30 @@ sub date_from_level_forecast
 # save alert status - active, inactive, canceled, superseded
 sub save_alert_status
 {
-    my ( $item_ref, $serial ) = @_;
+    my ( $item_ref ) = @_;
+    my $msgid = $item_ref->{derived}{id};
+    my $serial = $item_ref->{msg_data}{$SERIAL_HEADER};
+
+    # check if serial number is marked as canceled or superseded
+    if ($params->{cancel}->contains($serial)) {
+        alert_set_cancel($msgid);
+        return;
+    }
+    if ($params->{supersede}->contains($serial)) {
+        alert_set_supersede($msgid);
+        return;
+    }
 
     # process cancellation of another serial number
     if ( exists $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER}) {
-        alert_cancel($item_ref->{msg_data}{$CANCEL_SERIAL_HEADER});
-        alert_inactive($serial);
+        serial_cancel($item_ref->{msg_data}{$CANCEL_SERIAL_HEADER});
+        alert_set_inactive($msgid);
         return;
     }
 
     # process extension/superseding of another serial number
     if ( exists $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER}) {
-        alert_supersede($item_ref->{msg_data}{$EXTEND_SERIAL_HEADER});
+        serial_supersede($item_ref->{msg_data}{$EXTEND_SERIAL_HEADER});
     }
 
     # set begin and expiration times based on various headers to that effect
@@ -387,14 +443,14 @@ sub save_alert_status
     }
 
     # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
-    date_from_level_forecast($item_ref, $serial);
+    date_from_level_forecast($item_ref);
 
     # set status as inactive if outside begin and end times
     if ( exists $item_ref->{derived}{begin}) {
         my $begin_dt = DateTime::Format::ISO8601->parse_datetime($item_ref->{derived}{begin});
         if ($TIMESTAMP < $begin_dt) {
             # begin time has not yet been reached
-            alert_inactive($serial);
+            alert_set_inactive($msgid);
         }
     }
     if ( exists $item_ref->{derived}{end}) {
@@ -402,14 +458,17 @@ sub save_alert_status
             + DateTime::Duration->new(hours => $RETAIN_TIME);
         if ($TIMESTAMP > $end_dt) {
             # expiration time has been reached
-            alert_inactive($serial);
+            alert_set_inactive($msgid);
         }
     }
 
     # activate the serial number if it is not expired, canceled or superseded
-    if ( not alert_is_cancel($serial) and not alert_is_inactive($serial) and not alert_is_supersede($serial)) {
-        alert_active($serial);
+    if ( alert_is_none($msgid)) {
+        alert_set_active($msgid);
     }
+
+    # save sorted list of active alerts
+    save_active_alerts();
     return;
 }
 
@@ -427,15 +486,14 @@ sub process_alerts
         # decode message text info further data fields - we can use msg_data after this point
         parse_message(\%item);
 
-        # save alert indexed by serial number
-        if (not exists $item{msg_data}{$SERIAL_HEADER}) {
-            # if no serial number then the record is not a valid alert
-            next;
-        }
-        my $serial = $item{msg_data}{$SERIAL_HEADER};
+        # save alert indexed by msgid
+        my $msgid = get_msgid(\%item);
         $item{derived} = {};
-        $item{derived}{id} = $serial;  
-        $params->{alerts}{$serial} = \%item;
+        $item{derived}{id} = $msgid;
+        $params->{alerts}{$msgid} = \%item;
+
+        # set initial status as none
+        $item{derived}{status} = $S_NONE;
 
         # find and save title
         foreach my $title_key ( @TITLE_KEYS ) {
@@ -455,7 +513,7 @@ sub process_alerts
         $item{derived}{bgcolor} = $LEVEL_COLORS[$item{derived}{level}];
 
         # save alert status - active, inactive, canceled, superseded
-        save_alert_status(\%item, $serial);
+        save_alert_status(\%item);
     }
 
     return;
@@ -466,8 +524,6 @@ sub main
     # initialize globals
     $params->{timestamp} = dt2dttz($TIMESTAMP);
     $params->{alerts} = {};
-    $params->{active} = Set::Tiny->new();
-    $params->{inactive} = Set::Tiny->new();
     $params->{cancel} = Set::Tiny->new();
     $params->{supersede} = Set::Tiny->new();
 
