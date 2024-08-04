@@ -502,6 +502,9 @@ sub process_alerts
                 last;
             }
         }
+        $item{derived}{serial} = $item{msg_data}{$SERIAL_HEADER};
+
+        # save serial number
 
         # set row color based on NOAA scales
         $item{derived}{level} = 0; # default setting for no known NOAA alert level (will be colored gray)
