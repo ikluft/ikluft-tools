@@ -80,7 +80,7 @@ Readonly::Array  my @INSTANTANEOUS_HEADERS => (
     "IP Shock Passage Observed",
 );
 Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
-Readonly::Scalar my $RETAIN_TIME => 12;  # hours to keep items after expiration
+Readonly::Scalar my $RETAIN_TIME => 6;  # hours to keep items after expiration
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
 Readonly::Array  my @LEVEL_COLORS => ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" ); # NOAA scales
 
