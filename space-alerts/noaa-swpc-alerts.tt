@@ -29,7 +29,7 @@
                         [% count = count + 1 %]
                         <td class="no-padding">[% alert.derived.serial %]</td>
                         <td class="no-padding" title="[% HTML.escape(alert.message) %]">[% HTML.escape(alert.derived.title) %]</td>
-                        <td class="no-padding" title="begin: [% alert.derived.exists('begin') ? alert.derived.begin : '&cross;' %]&NewLine;end: [% alert.derived.exists('end') ? alert.derived.end : '&cross;' %]"><small>[% alert.issue_datetime %]</small></td>
+                        <td class="no-padding" title="begin: [% alert.derived.exists('begin') ? alert.derived.begin : '&cross;' %]&NewLine;end: [% alert.derived.exists('end') ? alert.derived.end : '&cross;' %]"><small>[% alert.derived.issue %]</small></td>
                     </tr>
                     [% END %]
                     [% IF count == 0 %]

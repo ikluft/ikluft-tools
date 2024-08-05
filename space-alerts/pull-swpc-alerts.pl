@@ -80,7 +80,7 @@ Readonly::Array  my @INSTANTANEOUS_HEADERS => (
     "IP Shock Passage Observed",
 );
 Readonly::Scalar my $HIGHEST_LEVEL_HEADER => "Highest Storm Level Predicted by Day";
-Readonly::Scalar my $RETAIN_TIME => 6;  # hours to keep items after expiration
+Readonly::Scalar my $RETAIN_TIME => 12;  # hours to keep items after expiration
 Readonly::Array  my @TITLE_KEYS => ("SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING");
 Readonly::Array  my @LEVEL_COLORS => ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" ); # NOAA scales
 
@@ -95,8 +95,10 @@ sub datestr2dt
     my $mon = int($MONTH_NUM{lc $mon_str});
     my $hour = int(substr($time, 0, 2));
     my $min = int(substr($time, 2, 2));
-    return DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
+    my $dt = DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
         time_zone => $zone );
+    $dt->set_time_zone( $TIMEZONE );  # convert to same time in selected time zone
+    return $dt;
 }
 
 # convert issue time to DateTime
@@ -104,8 +106,10 @@ sub issue2dt
 {
     my $date_str = shift;
     my ( $year, $mon, $day, $hour, $min, $sec ) = split qr([-:\s])x, $date_str;
-    return DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
+    my $dt = DateTime->new( year => int($year), month => $mon, day => int($day), hour => $hour, minute => $min,
         second => int($sec), time_zone => "UTC" );
+    $dt->set_time_zone( $TIMEZONE );  # convert to same time in selected time zone
+    return $dt;
 }
 
 # convert DateTime to date/time/tz string
@@ -371,8 +375,8 @@ sub date_from_level_forecast
             my $issue_month = $issue_dt->month();
             my $expire_year = $issue_year + (( $issue_month == 12 and $last_date->[0] == 1 ) ? 1 : 0 );
             my $expire_dt = DateTime->new( year => $expire_year, month => $last_date->[0], day => $last_date->[1],
-                hour => 23, minute => 59, time_zone => 'UTC' );
-            $item_ref->{derived}{end} = $expire_dt->stringify();
+                hour => 23, minute => 59, time_zone => $TIMEZONE );
+            $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($expire_dt);
         }
     }
     return;
@@ -411,14 +415,14 @@ sub save_alert_status
     foreach my $begin_hdr ( @BEGIN_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$begin_hdr}) {
             my $begin_dt = datestr2dt($item_ref->{msg_data}{$begin_hdr});
-            $item_ref->{derived}{begin} = $begin_dt->stringify();
+            $item_ref->{derived}{begin} = DateTime::Format::ISO8601->format_datetime($begin_dt);
             last;
         }
     }
     foreach my $end_hdr ( @END_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$end_hdr}) {
             my $end_dt = datestr2dt($item_ref->{msg_data}{$end_hdr});
-            $item_ref->{derived}{end} = $end_dt->stringify();
+            $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($end_dt);
             last;
         }
     }
@@ -427,14 +431,14 @@ sub save_alert_status
     foreach my $instant_hdr ( @INSTANTANEOUS_HEADERS ) {
         if ( exists $item_ref->{msg_data}{$instant_hdr}) {
             my $tr_dt = datestr2dt($item_ref->{msg_data}{$instant_hdr});
-            $item_ref->{derived}{end} = $tr_dt->stringify();
+            $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($tr_dt);
             last;
         }
     }
 
     # if end time was set but no begin, use issue time
     if (( not exists $item_ref->{derived}{begin}) and ( exists $item_ref->{derived}{end})) {
-        $item_ref->{derived}{begin} = issue2dt($item_ref->{issue_datetime})->stringify();
+        $item_ref->{derived}{begin} = DateTime::Format::ISO8601->format_datetime(issue2dt($item_ref->{issue_datetime}));
     }
 
     # if begin time was set but no end, copy begin time to end time
@@ -504,7 +508,8 @@ sub process_alerts
         }
         $item{derived}{serial} = $item{msg_data}{$SERIAL_HEADER};
 
-        # save serial number
+        # reformat and save issue time
+        $item{derived}{issue} = DateTime::Format::ISO8601->format_datetime(issue2dt($item{issue_datetime}));
 
         # set row color based on NOAA scales
         $item{derived}{level} = 0; # default setting for no known NOAA alert level (will be colored gray)
