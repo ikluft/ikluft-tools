@@ -11,8 +11,9 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
-use Modern::Perl qw(2023);  # Perl 5.36 allows built-in boolean types
-use experimental qw(builtin);
+use Modern::Perl qw(2023);  # built-in boolean types require 5.36, try/catch requires 5.34
+use experimental qw(builtin try);
+use feature qw(try);
 use builtin qw(true false);
 use Readonly;
 use Carp qw(croak confess);
@@ -466,7 +467,7 @@ sub save_alert_status
         }
     }
 
-    # activate the serial number if it is not expired, canceled or superseded
+    # activate the alert if it is not expired, canceled or superseded
     if ( alert_is_none($msgid)) {
         alert_set_active($msgid);
     }
@@ -602,6 +603,9 @@ sub main
     return;
 }
 
-# run main
-
-main();
+# run main and catch exceptions
+try {
+    main();
+} catch ( $e ) {
+    croak "error: $e";
+}
