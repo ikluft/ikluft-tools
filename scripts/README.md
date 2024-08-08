@@ -37,9 +37,7 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[png2tn](png2tn)* is a shell script which copies and scales down a PNG (Portable Network Graphics) image to a smaller 100-pixel high thumbnail image.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
-- *[pull-nasa-neo.pl](pull-nasa-neo.pl)* reads NASA JPL data on Near Earth Object (NEO) asteroid close approaches to Earth, within 2 lunar distances (LD) and makes a table of upcoming events and recent ones within 15 days.
-  - language: Perl5🐪
-  - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
+- *[pull-nasa-neo.pl](pull-nasa-neo.pl)* (moved to [space-alerts](../space-alerts) directory in this repo)
 - *[rot13](rot13)* implements the trivial ROT13 cypher which rotates the letters 13 positions across the alphabet, so that it is also its own decryption method. This was originated in Internet tradition since the days of UseNet as a trivially-silly cypher which was built into many UseNet reader programs. But it actually dates back to Ancient Roman times. It can still be an amusement when playfully hiding non-important messages from someone who doesn't know what ROT13 is.
   - language: Unix shell🐚
 - *[space-story-count.pl](space-story-count.pl)* is used to list and rank space stories for the JetCityStar Aerospace Chat. The rankings use PrefVote's implementation of the RankedPairs or Schulze preference-voting algorithms to turn rankings from the editorial team members into the team's overall ranking of the stories.
