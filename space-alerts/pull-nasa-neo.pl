@@ -12,7 +12,7 @@ use warnings;
 use utf8;
 use autodie;
 use charnames qw(:loose);
-use feature qw(say);
+use feature   qw(say);
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
@@ -32,8 +32,8 @@ my %options;
 GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
 # constants
-Readonly::Scalar my $TEST_MODE => $options{test}     // 0;
-Readonly::Scalar my $PROXY     => $options{proxy}    // undef;
+Readonly::Scalar my $TEST_MODE => $options{test}  // 0;
+Readonly::Scalar my $PROXY     => $options{proxy} // undef;
 Readonly::Scalar my $BACK_DAYS => 15;
 Readonly::Scalar my $TIMEZONE  => $options{timezone} // "UTC";
 Readonly::Scalar my $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
@@ -44,9 +44,9 @@ Readonly::Scalar my $OUTJSON  => "neo-data.json";
 Readonly::Scalar my $TEMPLATE => "close-approaches.tt";
 Readonly::Scalar my $OUTHTML  => "close-approaches.html";
 Readonly::Scalar my $E_RADIUS => 6378;
-Readonly::Scalar my $UC_QMARK => "\N{fullwidth question mark}";  # Unicode question mark
-Readonly::Scalar my $UC_NDASH => "\N{en dash}";  # Unicode dash
-Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";  # Unicode plus-minus sign
+Readonly::Scalar my $UC_QMARK => "\N{fullwidth question mark}";    # Unicode question mark
+Readonly::Scalar my $UC_NDASH => "\N{en dash}";                    # Unicode dash
+Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plus-minus sign
 
 # internal computation for bgcolor for each table, called by dist2bgcolor()
 sub _dist2rgb
@@ -112,7 +112,9 @@ sub do_neo_query
     } else {
         my $url = sprintf $NEO_API_URL, $params->{start_date};
         my ( $outstr, $errstr );
-        my @cmd = ( "/usr/bin/curl", "--silent", "--proxy", $PROXY, "--output", $paths->{outjson}, $url );
+        my @cmd = (
+            "/usr/bin/curl", "--silent", "--proxy", $PROXY, "--output", $paths->{outjson}, $url
+        );
         IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
 
         # check results of query
@@ -164,7 +166,7 @@ sub h_to_diameter_m
 {
     my ( $h, $p ) = @_;
     my $ee = -0.2 * $h;
-    return 1329.0 / sqrt( $p ) * ( 10 ** $ee ) * 1000.0;
+    return 1329.0 / sqrt($p) * ( 10**$ee ) * 1000.0;
 }
 
 # get diameter as a printable string
@@ -173,7 +175,7 @@ sub h_to_diameter_m
 sub get_diameter
 {
     my $raw_item = shift;
-    my $params = shift;
+    my $params   = shift;
 
     # if diameter data was provided, use it
     if (    ( exists $raw_item->[ $params->{fnum}{diameter} ] )
@@ -186,7 +188,9 @@ sub get_diameter
             and ( defined $raw_item->[ $params->{fnum}{diameter_sigma} ] )
             and ( $raw_item->[ $params->{fnum}{diameter_sigma} ] ne "null" ) )
         {
-            $diameter .= " " . $UC_PLMIN . " " . int( $raw_item->[ $params->{fnum}{diameter_sigma} * 1000.0 ] + 0.5 );
+            $diameter .= " "
+                . $UC_PLMIN . " "
+                . int( $raw_item->[ $params->{fnum}{diameter_sigma} * 1000.0 ] + 0.5 );
         }
         return $diameter;
     }
@@ -202,7 +206,7 @@ sub get_diameter
         return $min . $UC_NDASH . $max;
     }
 
-    # if diameter and magnitude were both unknown, deal with missing data by displaying a question mark
+ # if diameter and magnitude were both unknown, deal with missing data by displaying a question mark
     return $UC_QMARK;
 }
 
@@ -212,7 +216,8 @@ my $paths  = {};
 
 # compute query start date from $BACK_DAYS days ago
 $params->{timestamp} = dt2dttz($TIMESTAMP);
-$params->{start_date} = $TIMESTAMP->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
+$params->{start_date} =
+    $TIMESTAMP->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
 is_interactive() and say "start date: " . $params->{start_date};
 
 # clear destination symlink
@@ -257,12 +262,13 @@ foreach my $raw_item ( @{ $params->{json}{data} } ) {
     $item{v_rel} = int( $raw_item->[ $params->{fnum}{v_rel} ] + 0.5 );
 
     # distance computation
-    foreach my $param_name ( qw(dist dist_min dist_max)) {
+    foreach my $param_name (qw(dist dist_min dist_max)) {
         $item{$param_name} = get_dist_km( $param_name, $raw_item, $params );
     }
 
     # closest approact in local timezone (for mouseover text)
-    my $cd_dt = DateTime::Format::Flexible->parse_datetime($item{cd}.":00 UTC")->set_time_zone($TIMEZONE);
+    my $cd_dt = DateTime::Format::Flexible->parse_datetime( $item{cd} . ":00 UTC" )
+        ->set_time_zone($TIMEZONE);
     $item{cd_local} = dt2dttz($cd_dt);
 
     # background color computation based on distance
@@ -297,7 +303,7 @@ if ($TEST_MODE) {
 if ( -l $paths->{outlink} ) {
     unlink $paths->{outlink};
 }
-symlink basename($paths->{outjson}), $paths->{outlink}
+symlink basename( $paths->{outjson} ), $paths->{outlink}
     or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
 
 # clean up old data files
