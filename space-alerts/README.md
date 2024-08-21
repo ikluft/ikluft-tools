@@ -1,4 +1,4 @@
-This directory contains scripts I've written which monitor space-related alerts online. These can be run manually or from crontabs.
+This directory contains scripts I've written which monitor space-related alerts online. These can be run manually or from crontabs. (see example below)
 
 - *[pull-nasa-neo.pl](pull-nasa-neo.pl)* reads NASA JPL data on Near Earth Object (NEO) asteroid close approaches to Earth, within 2 lunar distances (LD) and makes a table of upcoming events and recent ones within 15 days.
   - language: Perl5🐪
@@ -8,3 +8,26 @@ This directory contains scripts I've written which monitor space-related alerts 
   - language: Perl5🐪
   - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
   - example template text: [noaa-swpc-alerts.tt](noaa-swpc-alerts.tt)
+
+To run these scripts from a crontab, first use 'crontab -l' to determine if you have one set up, and that the crontab command is installed. (If it isn't installed, Linux packages such as [cronie](https://github.com/cronie-crond/cronie) can perform [modern cron](https://en.wikipedia.org/wiki/Cron#Modern_versions) functions. If on a small embedded Linux system, [BusyBox](https://en.wikipedia.org/wiki/BusyBox) or [Toybox](https://en.wikipedia.org/wiki/Toybox) also provide a crontab command.)
+
+If you have a crontab already, preserve its contents by saving it to a file we'll call 'my-crontab' with this command:
+
+    crontab -l > my-crontab
+
+Otherwise create the my-crontab file empty from scratch with a text editor.
+
+Add these lines to the my-crontab file, replacing "path/to/script" with your path where these scripts are installed and using your local time zone instead of US/Pacific (the author's local time zone).
+
+    CRON_TZ=UTC
+
+    # access NASA JPL NEO API 8 times per day and just after midnight UTC
+    1 0 * * *       $HOME/path/to/script/pull-nasa-neo.pl --tz="US/Pacific"
+    31~44 */3 * * * $HOME/path/to/script/pull-nasa-neo.pl --tz="US/Pacific"
+
+    # access NOAA Space Weather Predition Center alerts every 2 hours
+    11~24 */2 * * * $HOME/path/to/script/pull-swpc-alerts.pl --tz="US/Pacific"
+
+Then install the crontab by running:
+
+    crontab my-crontab
