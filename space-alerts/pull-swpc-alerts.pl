@@ -458,6 +458,7 @@ sub save_alert_status
         if ( exists $item_ref->{msg_data}{$instant_hdr} ) {
             my $tr_dt = datestr2dt( $item_ref->{msg_data}{$instant_hdr} );
             $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($tr_dt);
+            $item_ref->{derived}{begin} = $item_ref->{derived}{end};
             last;
         }
     }
