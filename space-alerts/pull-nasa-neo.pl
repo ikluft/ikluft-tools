@@ -98,6 +98,64 @@ sub dist2bgcolor
     return sprintf( "#%02X%02X%02X", $red, $green, $blue );
 }
 
+# internal computation for bgcolor for table cell, called by diameter2bgcolor()
+sub _diameter2rgb
+{
+    my $diameter_str = shift;
+
+    # deal with unknown diameter
+    if ( $diameter_str eq $UC_QMARK ) {
+        return ( 192, 192, 192 );
+    }
+
+    my $diameter;
+    if ( $diameter_str =~ /^ ( \d+ ) $UC_NDASH ( \d+ ) $/x ) {
+        $diameter = ( int( $1 ) + int( $2 ) ) / 2;
+    } else {
+        $diameter_str =~ s/[^\d] .*//x;
+        $diameter = int($diameter_str);
+    }
+
+    # green for under 30m
+    if ( $diameter <= 30 ) {
+        return ( 0, 255, 0 );
+    }
+
+    # 30-100m -> ramp from green #00FF00 to yellow #FFFF00
+    if ( $diameter <= 100 ) {
+        my $ramp = int( ( $diameter - 30 ) / 70 * 255 );
+        return ( $ramp, 255, 0 );
+    }
+
+    # 100-300m -> ramp from yellow #7F7F00 to orange #7F5300
+    if ( $diameter <= 300 ) {
+        my $ramp = 165 + int( ( $diameter - 100 ) / 200 * 91 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # 300-1000m -> ramp from orange #7F5300 to red #7F0000
+    if ( $diameter <= 1000 ) {
+        my $ramp = int( ( $diameter - 300 ) / 700 * 165 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # over 1000m -> red bg
+    return ( 255, 0, 0 );
+}
+
+# compute bgcolor for table cell based on NEO diameter
+sub diameter2bgcolor
+{
+    # background color computation based on distance
+    my $diameter_min_km = shift;
+    my ( $red, $green, $blue );
+
+    ( $red, $green, $blue ) = _diameter2rgb($diameter_min_km);
+
+    # return RGB string
+    return sprintf( "#%02X%02X%02X", $red, $green, $blue );
+}
+
 # perform NEO query and save result in named file
 sub do_neo_query
 {
@@ -277,6 +335,9 @@ foreach my $raw_item ( @{ $params->{json}{data} } ) {
 
     # diameter is not always known - must deal with missing or null values
     $item{diameter} = get_diameter( $raw_item, $params );
+
+    # cell background for diameter
+    $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
 
     # save NEO record
     push @{ $params->{neos} }, \%item;

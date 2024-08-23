@@ -30,7 +30,7 @@
                     <td class="no-padding" title="[% neo.cd_local %]">[% neo.cd %]</td>
                     <td class="text-center no-padding" title="[% neo.dist_min %] - [% neo.dist %] - [% neo.dist_max %]">[% neo.dist %]</td>
                     <td class="text-center no-padding">[% neo.v_rel %]</td>
-                    <td class="text-center no-padding">[% neo.diameter %]</td>
+                    <td class="text-center no-padding" bgcolor="[% neo.diameter_bgcolor %]">[% neo.diameter %]</td>
                 </tr>[% END %]
 
                 </tbody>
