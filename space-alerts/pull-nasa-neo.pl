@@ -110,8 +110,10 @@ sub _diameter2rgb
 
     my $diameter;
     if ( $diameter_str =~ /^ ( \d+ ) $UC_NDASH ( \d+ ) $/x ) {
-        $diameter = ( int( $1 ) + int( $2 ) ) / 2;
+        # if an estimated range of diameters was provided, use the top end for the cell color
+        $diameter = int( $2 );
     } else {
+        # otherwise use the initial integer as a median value
         $diameter_str =~ s/[^\d] .*//x;
         $diameter = int($diameter_str);
     }
