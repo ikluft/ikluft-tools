@@ -13,7 +13,7 @@
             <table class="space-alert-table">
                 <thead>
                     <tr>
-                        <th colspan="4">Current NOAA space weather alerts</th>
+                        <th colspan="3">Current NOAA space weather alerts</th>
                     </tr>
                     <tr class="secondary">
                         <th>serial</th>
@@ -34,7 +34,7 @@
                     [% END %]
                     [% IF count == 0 %]
                     <tr bgcolor="#bbb">
-                        <td class="no-padding" colspan="4"><center><i>&emptyset;&nbsp;no current NOAA SWPC alerts&nbsp;&emptyset;</i></center></td>
+                        <td class="no-padding" colspan="3"><center><i>&emptyset;&nbsp;&mdash;&nbsp;no current NOAA SWPC alerts&nbsp;&mdash;&nbsp;&emptyset;</i></center></td>
                     </tr>
                     [% END %]
                 </tbody>
