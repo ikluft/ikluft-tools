@@ -12,10 +12,10 @@ This directory contains miscellaneous helpful scripts I've written.
   - language: Unix shell🐚
   - dependencies: [ffmpeg](https://ffmpeg.org/)
 - *[d2dms](d2dms)* converts decimal degrees from the command line to degrees, minutes and seconds
-  - language: Perl5🐪
+  - language: Perl5🧅
   - dependencies: none
 - *[flatpak-aliases.pl](flatpak-aliases.pl)* is a script for Linux desktop and laptop systems (equipped with a graphical user interface) which when executed from the user's .bashrc script will make command-line shell aliases to launch any of the installed Flatpaks on the system. For example, if you installed the Gnu Image Manipulation Program (GIMP), it will make a shell function called org.gnome.GIMP based on the Flatpak's identified to run it, and shell aliases "GIMP" and "gimp" which refer to that shell function. So you can just run it as "gimp" with any usual command line arguments passed along to it. And similar functions/aliases will be made for all Flatpak apps installed on the system.
-  - language: Perl5🐪
+  - language: Perl5🧅
   - dependencies: [flatpak](https://flatpak.org/)
 - *[jcsac_gen_cal.py](jcsac_gen_cal.py)* generates calendar entries for the crew selecting space stories at JetCityStar Aerospace Chat
   - language: Python🐍
@@ -29,10 +29,10 @@ This directory contains miscellaneous helpful scripts I've written.
   - language: Unix shell🐚
   - dependencies: [make](https://www.gnu.org/software/make/)
 - *[perltidy.rc](perltidy.rc)* is the perltidy configuration file used to format the Perl scripts in this repo and others of mine
-  - language: Perl5🐪
+  - language: Perl5🧅
   - dependencies: [perltidy](https://metacpan.org/dist/Perl-Tidy/view/bin/perltidy)
 - *[perlcritic.rc](perlcritic.rc)* is the perlcritic configuration template used for static analysis of Perl scripts in this repo and others of mine
-  - language: Perl5🐪
+  - language: Perl5🧅
   - dependencies: [perlcritic](https://metacpan.org/dist/Perl-Critic/view/bin/perlcritic) (more via [Wikipedia](https://en.wikipedia.org/wiki/Perl::Critic))
 - *[png2tn](png2tn)* is a shell script which copies and scales down a PNG (Portable Network Graphics) image to a smaller 100-pixel high thumbnail image.
   - language: Unix shell🐚
@@ -40,7 +40,7 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[rot13](rot13)* implements the trivial ROT13 cypher which rotates the letters 13 positions across the alphabet, so that it is also its own decryption method. This was originated in Internet tradition since the days of UseNet as a trivially-silly cypher which was built into many UseNet reader programs. But it actually dates back to Ancient Roman times. It can still be an amusement when playfully hiding non-important messages from someone who doesn't know what ROT13 is.
   - language: Unix shell🐚
 - *[space-story-count.pl](space-story-count.pl)* is used to list and rank space stories for the JetCityStar Aerospace Chat. The rankings use PrefVote's implementation of the RankedPairs or Schulze preference-voting algorithms to turn rankings from the editorial team members into the team's overall ranking of the stories.
-  - language: Perl5🐪
+  - language: Perl5🧅
   - dependencies: [PrefVote](https://github.com/ikluft/prefvote)
 - *[timestamp-str](timestamp-str)* prints a timestamp string from the current time in YYYYMMDDHHMM format. It can be used for creating files with the creation time in their name.
   - language: Unix shell🐚
