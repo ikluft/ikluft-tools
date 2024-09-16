@@ -400,8 +400,9 @@ sub date_from_level_forecast
                 day       => $last_date->[1],
                 hour      => 23,
                 minute    => 59,
-                time_zone => $TIMEZONE
+                time_zone => "UTC",
             );
+            $expire_dt->set_time_zone($TIMEZONE);
             $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($expire_dt);
         }
     }
