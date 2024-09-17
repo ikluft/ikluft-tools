@@ -1,0 +1,98 @@
+#!/bin/bash
+# mk-compr - make a subdirectory of compressed images and videos based on current directory contents
+# combines and adapts from my jpeg2sc, png2sc & conv-mstdn scripts
+# Copyright 2010-2024 by Ian Kluft
+# Redistribution permitted by the author under the conditions of the
+# GNU General Public License Version 3.
+#    https://opensource.org/licenses/GPL-3.0
+#
+# usage: mk-compr
+
+# configuration
+shopt -s nocasematch extglob
+
+# globals
+progname="$(basename "$0")"
+
+# function: exit with error message
+die()
+{
+    echo "$progname:" "$@" >&2
+    exit 1
+}
+
+# function: collect names of JPEG images
+# uses null-delimited strings to read filenames with whitespace
+find_jpeg()
+{
+    find .. -maxdepth 1 -type f -print0 -name '*.[Jj][Pp][Gg]' -o -name '*.[Jj][Pp][Ee][Gg]'
+}
+
+# function: collect names of PNG images
+# uses null-delimited strings to read filenames with whitespace
+find_png()
+{
+    find .. -maxdepth 1 -type f -print0 -name '*.[Pp][Nn][Gg]'
+}
+
+# function: collect names of mp4 videos
+# uses null-delimited strings to read filenames with whitespace
+find_mp4()
+{
+    find .. -maxdepth 1 -type f -print0 -name '*.[Mm][Pp]4'
+}
+
+# function: scale down JPEG images - adapted from jpeg2sc script
+do_jpeg2sc()
+{
+    # process null-delimited strings with file names
+    find_jpeg | while read -r -d "" line
+    do
+        infile="$line"
+        [ -f "$infile" ] || continue
+        outfile="$(basename "${infile%.jp?(e)g}-sc.jpg")"
+
+        echo "converting $infile to $outfile"
+        jpegtopnm "$infile" | pnmcrop -sides -right | pnmgamma 1.3 | pamscale --height "${MED_SIZE:-1600}" | pnmtojpeg -quality=90 > "$outfile"
+        exiftool -overwrite_original_in_place -tagsFromFile "$infile" "$outfile"
+        echo
+    done
+}
+
+# function: scale down PNG image - adapted from png2sc script
+do_png2sc()
+{
+    find_png | while read -r -d "" line
+    do
+        infile=$line
+        [ -f "$infile" ] || continue
+        outfile="$(basename "${infile%.png}-sc.png")"
+
+        echo "converting $infile to $outfile"
+        pngtopnm "$infile" | pnmcrop -sides -right | pnmgamma 1.3 | pamscale --height "${MED_SIZE:-1600}" | pnmtopng -compression=9 > "$outfile"
+        echo
+    done
+}
+
+# function: compress MP4 videos - adapted from conv-mstdn script
+do_compr_mp4()
+{
+    : TODO
+    find_mp4 | while read -r -d "" line
+    do
+        infile=$line
+        [ -f "$infile" ] || continue
+        outfile="$(basename "${infile%.mp4}.mstdn.mp4")"
+
+        echo "converting $infile to $outfile"
+        ffmpeg -i "$infile" -y -map 0:v -map 0:a -c:v libx264 -c:a copy -s 1280x720 -fs "40800KB" -vtag avc1 -crf 24 "$outfile" < /dev/null
+        echo
+    done
+}
+
+# mainline
+mkdir compressed || die "failed to create subdirectory"
+cd compressed || die "failed to enter subdirectory"
+do_jpeg2sc
+do_png2sc
+do_compr_mp4
