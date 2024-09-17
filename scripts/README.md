@@ -34,6 +34,9 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[perlcritic.rc](perlcritic.rc)* is the perlcritic configuration template used for static analysis of Perl scripts in this repo and others of mine
   - language: Perl5🧅
   - dependencies: [perlcritic](https://metacpan.org/dist/Perl-Critic/view/bin/perlcritic) (more via [Wikipedia](https://en.wikipedia.org/wiki/Perl::Critic))
+- *[png2sc](png2sc)* is a shell script which copied and scales down a PNG image, default 1600 pixels otherwise a number set by the MED_SIZE environment variable.
+  - language: Unix shell🐚
+  - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[png2tn](png2tn)* is a shell script which copies and scales down a PNG (Portable Network Graphics) image to a smaller 100-pixel high thumbnail image.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
