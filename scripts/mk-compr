@@ -77,7 +77,6 @@ do_png2sc()
 # function: compress MP4 videos - adapted from conv-mstdn script
 do_compr_mp4()
 {
-    : TODO
     find_mp4 | while read -r -d "" line
     do
         infile=$line
