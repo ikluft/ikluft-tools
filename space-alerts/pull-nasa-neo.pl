@@ -126,20 +126,20 @@ sub _diameter2rgb
     }
 
     # 20-75m -> ramp from green #00FF00 to yellow #FFFF00
-    if ( $diameter <= 100 ) {
+    if ( $diameter <= 75 ) {
         my $ramp = int( ( $diameter - 20 ) / 55 * 255 );
         return ( $ramp, 255, 0 );
     }
 
-    # 75-300m -> ramp from yellow #7F7F00 to orange #7F5300
-    if ( $diameter <= 300 ) {
-        my $ramp = 165 + int( ( $diameter - 90 ) / 225 * 91 );
+    # 75-140m -> ramp from yellow #7F7F00 to orange #7F5300
+    if ( $diameter <= 140 ) {
+        my $ramp = 165 + int( ( $diameter - 75 ) / 65 * 91 );
         return ( 255, $ramp, 0 );
     }
 
-    # 300-1000m -> ramp from orange #7F5300 to red #7F0000
+    # 140-1000m -> ramp from orange #7F5300 to red #7F0000
     if ( $diameter <= 1000 ) {
-        my $ramp = int( ( $diameter - 300 ) / 700 * 165 );
+        my $ramp = int( ( $diameter - 140 ) / 860 * 165 );
         return ( 255, $ramp, 0 );
     }
 
