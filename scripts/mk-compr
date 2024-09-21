@@ -25,21 +25,21 @@ die()
 # uses null-delimited strings to read filenames with whitespace
 find_jpeg()
 {
-    find .. -maxdepth 1 -type f -print0 -name '*.[Jj][Pp][Gg]' -o -name '*.[Jj][Pp][Ee][Gg]'
+    find -L .. -maxdepth 1 -type f -print0 -name '*.[Jj][Pp][Gg]' -o -name '*.[Jj][Pp][Ee][Gg]'
 }
 
 # function: collect names of PNG images
 # uses null-delimited strings to read filenames with whitespace
 find_png()
 {
-    find .. -maxdepth 1 -type f -print0 -name '*.[Pp][Nn][Gg]'
+    find -L .. -maxdepth 1 -type f -print0 -name '*.[Pp][Nn][Gg]'
 }
 
 # function: collect names of mp4 videos
 # uses null-delimited strings to read filenames with whitespace
 find_mp4()
 {
-    find .. -maxdepth 1 -type f -print0 -name '*.[Mm][Pp]4'
+    find -L .. -maxdepth 1 -type f -print0 -name '*.[Mm][Pp]4'
 }
 
 # function: scale down JPEG images - adapted from jpeg2sc script
@@ -50,6 +50,7 @@ do_jpeg2sc()
     do
         infile="$line"
         [ -f "$infile" ] || continue
+        [[ "$infile" == *.jp?(e)g ]] || continue
         outfile="$(basename "${infile%.jp?(e)g}-sc.jpg")"
 
         echo "converting $infile to $outfile"
@@ -66,6 +67,7 @@ do_png2sc()
     do
         infile=$line
         [ -f "$infile" ] || continue
+        [[ "$infile" == *.png ]] || continue
         outfile="$(basename "${infile%.png}-sc.png")"
 
         echo "converting $infile to $outfile"
@@ -81,6 +83,7 @@ do_compr_mp4()
     do
         infile=$line
         [ -f "$infile" ] || continue
+        [[ "$infile" == *.mp4 ]] || continue
         outfile="$(basename "${infile%.mp4}.mstdn.mp4")"
 
         echo "converting $infile to $outfile"
