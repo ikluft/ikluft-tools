@@ -25,7 +25,7 @@ This directory contains miscellaneous helpful scripts I've written.
 - *[jpeg2sc](jpeg2sc)* is a shell script which copied and scales down a JPEG image, default 1600 pixels otherwise a number set by the MED_SIZE environment variable.
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
-- *[mk-compr](mk-compr)* is a shell script which makes a subdirectory of compressed images and videos based on current directory contents
+- *[mk-compr](mk-compr)* is a shell script which makes a subdirectory of compressed images and videos based on current directory contents (derived from jpeg2sc, png2sc and conv-mstdn.sh in this directory)
   - language: Unix shell🐚
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm)
 - *[makelog](makelog)* is a shell script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
