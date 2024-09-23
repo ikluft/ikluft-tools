@@ -46,9 +46,8 @@ find_mp4()
 do_jpeg2sc()
 {
     # process null-delimited strings with file names
-    find_jpeg | while read -r -d "" line
+    find_jpeg | while read -r -d "" infile
     do
-        infile="$line"
         [ -f "$infile" ] || continue
         [[ "$infile" == *.jp?(e)g ]] || continue
         outfile="$(basename "${infile%.jp?(e)g}-sc.jpg")"
@@ -63,9 +62,8 @@ do_jpeg2sc()
 # function: scale down PNG image - adapted from png2sc script
 do_png2sc()
 {
-    find_png | while read -r -d "" line
+    find_png | while read -r -d "" infile
     do
-        infile=$line
         [ -f "$infile" ] || continue
         [[ "$infile" == *.png ]] || continue
         outfile="$(basename "${infile%.png}-sc.png")"
@@ -79,9 +77,8 @@ do_png2sc()
 # function: compress MP4 videos - adapted from conv-mstdn script
 do_compr_mp4()
 {
-    find_mp4 | while read -r -d "" line
+    find_mp4 | while read -r -d "" infile
     do
-        infile=$line
         [ -f "$infile" ] || continue
         [[ "$infile" == *.mp4 ]] || continue
         outfile="$(basename "${infile%.mp4}.mstdn.mp4")"
