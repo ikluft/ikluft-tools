@@ -347,7 +347,7 @@ foreach my $raw_item ( @{ $params->{json}{data} } ) {
     $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
 
     # save NASA NEO web URL
-    $item{link} = URI::Escape::uri_escape_utf8( $NEO_LINK_URL . $item{des} );
+    $item{link} = $NEO_LINK_URL . URI::Escape::uri_escape_utf8( $item{des} );
 
     # save NEO record
     push @{ $params->{neos} }, \%item;
