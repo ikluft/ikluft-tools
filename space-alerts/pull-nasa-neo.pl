@@ -24,6 +24,7 @@ use Getopt::Long;
 use File::Slurp;
 use IO::Interactive qw(is_interactive);
 use JSON;
+use URI::Escape;
 use Template;
 use Data::Dumper;
 
@@ -39,6 +40,8 @@ Readonly::Scalar my $TIMEZONE  => $options{timezone} // "UTC";
 Readonly::Scalar my $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
 Readonly::Scalar my $NEO_API_URL =>
     "https://ssd-api.jpl.nasa.gov/cad.api?dist-max=2LD&sort=-date&diameter=true&date-min=%s";
+Readonly::Scalar my $NEO_LINK_URL =>
+    "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=";
 Readonly::Scalar my $OUTDIR   => $FindBin::Bin;
 Readonly::Scalar my $OUTJSON  => "neo-data.json";
 Readonly::Scalar my $TEMPLATE => "close-approaches.tt";
@@ -342,6 +345,9 @@ foreach my $raw_item ( @{ $params->{json}{data} } ) {
 
     # cell background for diameter
     $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
+
+    # save NASA NEO web URL
+    $item{link} = URI::Escape::uri_escape_utf8( $NEO_LINK_URL . $item{des} );
 
     # save NEO record
     push @{ $params->{neos} }, \%item;
