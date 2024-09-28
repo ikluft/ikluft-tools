@@ -11,8 +11,11 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
+use Modern::Perl qw(2023);          # built-in boolean types require 5.36, try/catch requires 5.34
+use experimental qw(builtin try);
+use feature      qw(say try);
+use builtin      qw(true false);
 use charnames qw(:loose);
-use feature   qw(say);
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
@@ -33,8 +36,8 @@ my %options;
 GetOptions( \%options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
 # constants
-Readonly::Scalar my $TEST_MODE => $options{test}  // 0;
-Readonly::Scalar my $PROXY     => $options{proxy} // undef;
+Readonly::Scalar my $TEST_MODE => $options{test}  // false;
+Readonly::Scalar my $PROXY     => $options{proxy} // $ENV{PROXY} // $ENV{SOCKS_PROXY};
 Readonly::Scalar my $BACK_DAYS => 15;
 Readonly::Scalar my $TIMEZONE  => $options{timezone} // "UTC";
 Readonly::Scalar my $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
@@ -276,125 +279,138 @@ sub get_diameter
     return $UC_QMARK;
 }
 
-# template data & setup
-my $params = {};
-my $paths  = {};
+sub main
+{
+    # template data & setup
+    my $params = {};
+    my $paths  = {};
 
-# compute query start date from $BACK_DAYS days ago
-$params->{timestamp} = dt2dttz($TIMESTAMP);
-$params->{start_date} =
-    $TIMESTAMP->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
-is_interactive() and say "start date: " . $params->{start_date};
+    # compute query start date from $BACK_DAYS days ago
+    $params->{timestamp} = dt2dttz($TIMESTAMP);
+    $params->{start_date} =
+        $TIMESTAMP->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
+    is_interactive() and say "start date: " . $params->{start_date};
 
-# clear destination symlink
-$paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
-if ( -e $paths->{outlink} ) {
-    if ( not -l $paths->{outlink} ) {
-        croak "destination file $paths->{outlink} is not a symlink";
+    # clear destination symlink
+    $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
+    if ( -e $paths->{outlink} ) {
+        if ( not -l $paths->{outlink} ) {
+            croak "destination file $paths->{outlink} is not a symlink";
+        }
     }
-}
-$paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
+    $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
 
-# perform NEO query
-do_neo_query( $paths, $params );
+    # perform NEO query
+    do_neo_query( $paths, $params );
 
-# read JSON into template data
-# in case of JSON error, allow these to crash the program here before proceeding to symlinks
-my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
-my $json_text = File::Slurp::read_file($json_path);
-$params->{json} = JSON::from_json $json_text;
+    # read JSON into template data
+    # in case of JSON error, allow these to crash the program here before proceeding to symlinks
+    my $json_path = $TEST_MODE ? $paths->{outlink} : $paths->{outjson};
+    my $json_text = File::Slurp::read_file($json_path);
+    $params->{json} = JSON::from_json $json_text;
 
-# check API version number
-if ( $params->{json}{signature}{version} ne "1.5" ) {
-    croak "API version changed to "
-        . $params->{json}{signature}{version}
-        . " - code needs checking";
-}
-
-# collect field names/numbers from JSON
-$params->{fnum} = {};
-for ( my $fnum = 0 ; $fnum < scalar @{ $params->{json}{fields} } ; $fnum++ ) {
-    $params->{fnum}{ $params->{json}{fields}[$fnum] } = $fnum;
-}
-
-# convert API results to template-able list
-$params->{neos} = [];
-foreach my $raw_item ( @{ $params->{json}{data} } ) {
-
-    # start NEO record
-    my %item;
-    $item{des}   = $raw_item->[ $params->{fnum}{des} ];
-    $item{cd}    = $raw_item->[ $params->{fnum}{cd} ];
-    $item{v_rel} = int( $raw_item->[ $params->{fnum}{v_rel} ] + 0.5 );
-
-    # distance computation
-    foreach my $param_name (qw(dist dist_min dist_max)) {
-        $item{$param_name} = get_dist_km( $param_name, $raw_item, $params );
+    # check API version number
+    if ( $params->{json}{signature}{version} ne "1.5" ) {
+        croak "API version changed to "
+            . $params->{json}{signature}{version}
+            . " - code needs checking";
     }
 
-    # closest approact in local timezone (for mouseover text)
-    my $cd_dt = DateTime::Format::Flexible->parse_datetime( $item{cd} . ":00 UTC" )
-        ->set_time_zone($TIMEZONE);
-    $item{cd_local} = dt2dttz($cd_dt);
-
-    # background color computation based on distance
-    $item{bgcolor} = dist2bgcolor( $item{dist} );
-
-    # diameter is not always known - must deal with missing or null values
-    $item{diameter} = get_diameter( $raw_item, $params );
-
-    # cell background for diameter
-    $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
-
-    # save NASA NEO web URL
-    $item{link} = $NEO_LINK_URL . URI::Escape::uri_escape_utf8( $item{des} );
-
-    # save NEO record
-    push @{ $params->{neos} }, \%item;
-}
-
-# process template
-my $config = {
-    INCLUDE_PATH => $OUTDIR,    # or list ref
-    INTERPOLATE  => 1,          # expand "$var" in plain text
-    POST_CHOMP   => 1,          # cleanup whitespace
-                                #PRE_PROCESS  => 'header',        # prefix each template
-    EVAL_PERL    => 0,          # evaluate Perl code blocks
-};
-my $template = Template->new($config);
-$template->process( $TEMPLATE, $params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
-    or croak "template processing error: " . $template->error();
-
-# in test mode, exit before messing with symlink or removing old files
-if ($TEST_MODE) {
-    say "test mode: params=" . Dumper($params);
-    exit 0;
-}
-
-# make a symlink to new data
-if ( -l $paths->{outlink} ) {
-    unlink $paths->{outlink};
-}
-symlink basename( $paths->{outjson} ), $paths->{outlink}
-    or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
-
-# clean up old data files
-opendir( my $dh, $OUTDIR )
-    or croak "Can't open $OUTDIR: $!";
-my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
-closedir $dh;
-if ( scalar @datafiles > 5 ) {
-    splice @datafiles, 0, 5;
-    foreach my $oldfile (@datafiles) {
-
-        # double check we're only removing old JSON files
-        next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
-
-        my $delpath = "$OUTDIR/$oldfile";
-        next if not -e $delpath;               # skip if the file doesn't exist
-        next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
-
-        is_interactive() and say "removing $delpath";
-        unlink $delpath;
+    # collect field names/numbers from JSON
+    $params->{fnum} = {};
+    for ( my $fnum = 0 ; $fnum < scalar @{ $params->{json}{fields} } ; $fnum++ ) {
+        $params->{fnum}{ $params->{json}{fields}[$fnum] } = $fnum;
     }
+
+    # convert API results to template-able list
+    $params->{neos} = [];
+    foreach my $raw_item ( @{ $params->{json}{data} } ) {
+
+        # start NEO record
+        my %item;
+        $item{des}   = $raw_item->[ $params->{fnum}{des} ];
+        $item{cd}    = $raw_item->[ $params->{fnum}{cd} ];
+        $item{v_rel} = int( $raw_item->[ $params->{fnum}{v_rel} ] + 0.5 );
+
+        # distance computation
+        foreach my $param_name (qw(dist dist_min dist_max)) {
+            $item{$param_name} = get_dist_km( $param_name, $raw_item, $params );
+        }
+
+        # closest approact in local timezone (for mouseover text)
+        my $cd_dt = DateTime::Format::Flexible->parse_datetime( $item{cd} . ":00 UTC" )
+            ->set_time_zone($TIMEZONE);
+        $item{cd_local} = dt2dttz($cd_dt);
+
+        # background color computation based on distance
+        $item{bgcolor} = dist2bgcolor( $item{dist} );
+
+        # diameter is not always known - must deal with missing or null values
+        $item{diameter} = get_diameter( $raw_item, $params );
+
+        # cell background for diameter
+        $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
+
+        # save NASA NEO web URL
+        $item{link} = $NEO_LINK_URL . URI::Escape::uri_escape_utf8( $item{des} );
+
+        # save NEO record
+        push @{ $params->{neos} }, \%item;
+    }
+
+    # process template
+    my $config = {
+        INCLUDE_PATH => $OUTDIR,    # or list ref
+        INTERPOLATE  => 1,          # expand "$var" in plain text
+        POST_CHOMP   => 1,          # cleanup whitespace
+                                    #PRE_PROCESS  => 'header',        # prefix each template
+        EVAL_PERL    => 0,          # evaluate Perl code blocks
+    };
+    my $template = Template->new($config);
+    $template->process( $TEMPLATE, $params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+        or croak "template processing error: " . $template->error();
+
+    # in test mode, exit before messing with symlink or removing old files
+    if ($TEST_MODE) {
+        say "test mode: params=" . Dumper($params);
+        exit 0;
+    }
+
+    # make a symlink to new data
+    if ( -l $paths->{outlink} ) {
+        unlink $paths->{outlink};
+    }
+    symlink basename( $paths->{outjson} ), $paths->{outlink}
+        or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
+
+    # clean up old data files
+    opendir( my $dh, $OUTDIR )
+        or croak "Can't open $OUTDIR: $!";
+    my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
+    closedir $dh;
+    if ( scalar @datafiles > 5 ) {
+        splice @datafiles, 0, 5;
+        foreach my $oldfile (@datafiles) {
+
+            # double check we're only removing old JSON files
+            next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
+
+            my $delpath = "$OUTDIR/$oldfile";
+            next if not -e $delpath;               # skip if the file doesn't exist
+            next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
+
+            is_interactive() and say "removing $delpath";
+            unlink $delpath;
+        }
+    }
+
+    return;
 }
+
+# run main and catch exceptions
+try {
+    main();
+} catch ($e) {
+    croak "error: $e";
+}
+
