@@ -33,3 +33,11 @@ Add these lines to the 'my-crontab' file, replacing "path/to/script" with your p
 Then install the crontab by running:
 
     crontab my-crontab
+
+Ongoing experimentation
+=======================
+
+The SWPC alert script is derived from the NEO script. So they have some common code. Before making more similar scripts, it would be a good idea to make modules to combine their common features.
+
+Also, an outage in Tom Taylor's Mastodon "Low Flying Rocks" bot led me to the conclusion I should expand these to be able to post on Mastodon. I was already inspired by [XKCD comic #2979 "Sky Alarm"](https://xkcd.com/2979/) to go in that direction.
+[![XKCD comic #2979 "Sky Alarm"](https://imgs.xkcd.com/comics/sky_alarm.png)](https://xkcd.com/2979/)
