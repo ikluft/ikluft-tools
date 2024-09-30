@@ -1,1 +1,1 @@
-../space-alerts/pull-nasa-neo.pl
+../space-alerts/bin/pull-nasa-neo.pl
