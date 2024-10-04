@@ -4,7 +4,7 @@ This directory contains scripts I've written which monitor space-related alerts 
   - language: Perl5🧅
   - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
   - example template text: [close-approaches.tt](close-approaches.tt)
-- *[pull-nasa-neo.pl](bin/pull-nasa-neo.pl)* reads NOAA Space Weather Prediction Center (SWPC) alerts for solar flares and aurora
+- *[pull-swpc-alerts.pl](bin/pull-swpc-alerts.pl)* reads NOAA Space Weather Prediction Center (SWPC) alerts for solar flares and aurora
   - language: Perl5🧅
   - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
   - example template text: [noaa-swpc-alerts.tt](noaa-swpc-alerts.tt)
