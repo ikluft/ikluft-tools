@@ -15,6 +15,18 @@ use autodie;
 use experimental qw(builtin try);
 use feature      qw(say try);
 use builtin      qw(true false);
+use Readonly;
+use Carp qw(croak confess);
+
+# initialize class static variables
+our %options = ();
+
+# constants
+Readonly::Scalar our $TEST_MODE => $options{test}  // false;
+Readonly::Scalar our $PROXY     => $options{proxy} // $ENV{PROXY} // $ENV{SOCKS_PROXY};
+Readonly::Scalar our $TIMEZONE  => $options{timezone} // "UTC";
+Readonly::Scalar our $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
+Readonly::Scalar our $OUTDIR    => $FindBin::Bin;
 
 #
 # common functions used by AlertGizmo feed monitors
@@ -30,15 +42,15 @@ sub dt2dttz
 # inner mainline called from main() exception-catching wrapper
 sub main_inner
 {
+    # read command line arguments
+    GetOptions( \%AlertGizmo::options, "test|test_mode", "proxy:s", "timezone|tz:s" );
+
     # template data & setup
     my $params = {};
     my $paths  = {};
 
-    # compute query start date from $BACK_DAYS days ago
+    # save timestamp
     $params->{timestamp} = dt2dttz($TIMESTAMP);
-    $params->{start_date} =
-        $TIMESTAMP->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
-    is_interactive() and say "start date: " . $params->{start_date};
 
     # clear destination symlink
     $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
