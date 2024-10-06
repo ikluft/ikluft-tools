@@ -17,11 +17,13 @@ use feature      qw(say try);
 use builtin      qw(true false);
 use Readonly;
 use Carp qw(croak confess);
+use File::Basename;
 
 # initialize class static variables
 our %options = ();
 
 # constants
+Readonly::Scalar our $PROGNAME  => basename( $0 );
 Readonly::Scalar our $TEST_MODE => $options{test}  // false;
 Readonly::Scalar our $PROXY     => $options{proxy} // $ENV{PROXY} // $ENV{SOCKS_PROXY};
 Readonly::Scalar our $TIMEZONE  => $options{timezone} // "UTC";
@@ -42,6 +44,21 @@ sub dt2dttz
 # inner mainline called from main() exception-catching wrapper
 sub main_inner
 {
+    # use the name of the script to determine which AlertGizmo subclass to load
+    my $progname = $PROGNAME;
+    $progname =~ s/^alert-//x;  # remove alert- prefix from program name
+    $progname =~ s/\.pl$//x;    # remove .pl suffix if present
+    my $subclassname = __PACKAGE__."::".ucfirst(lc($progname));
+    my $subclasspath = $subclassname.".pm";
+    $subclasspath =~ s/::/\//gx;
+    try {
+        require $subclasspath;
+    } catch ( $e ) {
+        croak "failed to load class $subclassname: $e";
+    };
+
+    # TODO load subclass-specific argument list
+
     # read command line arguments
     GetOptions( \%AlertGizmo::options, "test|test_mode", "proxy:s", "timezone|tz:s" );
 
@@ -119,6 +136,7 @@ sub main
     try {
         main_inner();
     } catch ($e) {
+        # simple but a functional start until more specific exception-catching gets added
         croak "error: $e";
     }
     exit 0;
