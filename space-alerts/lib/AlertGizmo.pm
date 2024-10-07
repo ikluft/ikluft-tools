@@ -20,7 +20,10 @@ use Carp qw(croak confess);
 use File::Basename;
 
 # initialize class static variables
+# TODO resolve perlcritic warning: move to singleton config class, like WebFetch does but lighter-weight
 our %options = ();
+our %params = ();
+our %paths  = ();
 
 # constants
 Readonly::Scalar our $PROGNAME  => basename( $0 );
@@ -56,27 +59,28 @@ sub main_inner
     } catch ( $e ) {
         croak "failed to load class $subclassname: $e";
     };
+    if ( not $subclassname->isa( __PACKAGE__ )) {
+        croak "error: $subclassname is not a subclass of ".__PACKAGE__;
+    }
 
-    # TODO load subclass-specific argument list
-
-    # read command line arguments
-    GetOptions( \%AlertGizmo::options, "test|test_mode", "proxy:s", "timezone|tz:s" );
-
-    # template data & setup
-    my $params = {};
-    my $paths  = {};
+    # load subclass-specific argument list, then read command line arguments
+    my @cli_options = ( "test|test_mode", "proxy:s", "timezone|tz:s" );
+    if ( $subclassname->can( "cli_options" )) {
+            push @cli_options, $subclassname->cli_options();
+    }
+    GetOptions( \%AlertGizmo::options, @cli_options );
 
     # save timestamp
-    $params->{timestamp} = dt2dttz($TIMESTAMP);
+    $params{timestamp} = dt2dttz($TIMESTAMP);
 
     # clear destination symlink
-    $paths->{outlink} = $OUTDIR . "/" . $OUTJSON;
-    if ( -e $paths->{outlink} ) {
-        if ( not -l $paths->{outlink} ) {
-            croak "destination file $paths->{outlink} is not a symlink";
+    $paths{outlink} = $OUTDIR . "/" . $OUTJSON;
+    if ( -e $paths{outlink} ) {
+        if ( not -l $paths{outlink} ) {
+            croak "destination file $paths{outlink} is not a symlink";
         }
     }
-    $paths->{outjson} = $paths->{outlink} . "-" . $TIMESTAMP;
+    $paths{outjson} = $paths{outlink} . "-" . $TIMESTAMP;
 
     # TODO - domain-specific processing via subclass override
 
@@ -89,21 +93,21 @@ sub main_inner
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $TEMPLATE, $params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+    $template->process( $TEMPLATE, \%params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
     if ($TEST_MODE) {
-        say "test mode: params=" . Dumper($params);
+        say "test mode: params=" . Dumper(\%params);
         exit 0;
     }
 
     # make a symlink to new data
-    if ( -l $paths->{outlink} ) {
-        unlink $paths->{outlink};
+    if ( -l $paths{outlink} ) {
+        unlink $paths{outlink};
     }
-    symlink basename( $paths->{outjson} ), $paths->{outlink}
-        or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
+    symlink basename( $paths{outjson} ), $paths{outlink}
+        or croak "failed to symlink " . $paths{outlink} . " to " . $paths{outjson} . "; $!";
 
         # clean up old data files
     opendir( my $dh, $OUTDIR )
@@ -130,6 +134,7 @@ sub main_inner
 }
 
 # exception-catching wrapper for mainline
+## no critic (Subroutines::RequireFinalReturn)
 sub main
 {
     # catch exceptions
@@ -141,5 +146,6 @@ sub main
     }
     exit 0;
 }
+## critic (Subroutines::RequireFinalReturn)
 
 1;
