@@ -1,10 +1,9 @@
 #!/usr/bin/env perl
-#===============================================================================
-#         FILE: pull-swpc-alerts.pl
-#        USAGE: ./pull-swpc-alerts.pl
-#  DESCRIPTION:
-#       AUTHOR: Ian Kluft (IKLUFT), ikluft@cpan.org
-#      CREATED: 07/17/2024 07:57:08 PM
+#  PODNAME: pull-swpc-alerts.pl
+# ABSTRACT: get NOAA Space Weather alert data and sort out which are current
+#    USAGE: ./pull-swpc-alerts.pl
+#   AUTHOR: Ian Kluft (IKLUFT), ikluft@cpan.org
+#  CREATED: 07/17/2024 07:57:08 PM
 #===============================================================================
 
 use strict;

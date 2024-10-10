@@ -1,10 +1,9 @@
 #!/usr/bin/env perl
-#===============================================================================
-#         FILE: pull-nasa-neo.pl
-#        USAGE: ./pull-nasa-neo.pl
-#  DESCRIPTION: get upcoming & recent Near Earth Object approaches from NASA JPL API
-#       AUTHOR: Ian Kluft (IKLUFT)
-#      CREATED: 06/30/23 11:08:06
+#  PODNAME: pull-nasa-neo.pl
+# ABSTRACT: get upcoming & recent Near Earth Object approaches from NASA JPL API
+#    USAGE: ./pull-nasa-neo.pl
+#   AUTHOR: Ian Kluft (IKLUFT)
+#  CREATED: 06/30/23 11:08:06
 #===============================================================================
 
 use strict;
