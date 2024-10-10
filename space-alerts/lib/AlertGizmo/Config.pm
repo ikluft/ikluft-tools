@@ -186,7 +186,48 @@ sub write_accessor
     return ok();
 }
 
-# TODO
+# configuration read/write accessor
+# top-level class config() method calls here
+sub accessor
+{
+    my ( $class_or_obj, $keys_ref, $value ) = @_;
+    my $instance = _class_or_obj($class_or_obj);
+
+    # if no value is provided, use read accessor
+    if ( not defined $value ) {
+        my @keys = ( ref $keys_ref eq "ARRAY" ) ? @$keys_ref : $keys_ref;
+        return $instance->read_accessor(@keys);
+    }
+
+    # otherwise use write accessor
+    return $instance->write_accessor( $keys_ref, $value );
+}
+
+# delete configuration item
+sub del
+{
+    my ( $class_or_obj, @keys ) = @_;
+    my $instance = _class_or_obj($class_or_obj);
+    my $last_key = pop @keys;
+    my $hoh_result = $instance->_get_hoh_path( @keys );
+    if ( $hoh_result->is_err()) {
+        return $hoh_result;
+    }
+    my $node = $hoh_result->unwrap();
+
+    if ( ref $node eq "HASH" ) {
+        if ( $node->contains($last_key) ) {
+            # delete entry from hash
+            return delete $node->{$last_key};
+        }
+    } elsif ( ref $node eq "ARRAY" ) {
+        if ( exists $node->[ int( $last_key ) ]) {
+            # delete nth entry from array, shift higher items down and shrink array size
+            splice @$node, int( $last_key ), 1;
+        }
+    }
+    return ok();
+}
 
 #
 # utility functions
