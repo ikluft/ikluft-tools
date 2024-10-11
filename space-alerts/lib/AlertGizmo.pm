@@ -17,21 +17,94 @@ use feature      qw(say try);
 use builtin      qw(true false);
 use Readonly;
 use Carp qw(croak confess);
+use AlertGizmo::Config;
 use File::Basename;
 
 # initialize class static variables
-# TODO resolve perlcritic warning: move to singleton config class, like WebFetch does but lighter-weight
-our %options = ();
-our %params = ();
-our %paths  = ();
+AlertGizmo::Config->accessor( [ "options" ], {} );
+AlertGizmo::Config->accessor( [ "params" ], {} );
+AlertGizmo::Config->accessor( [ "paths" ], {} );
 
 # constants
+# FIXME - module has no CLI data during init; replace with functions that lazy-init configs after main() starts
 Readonly::Scalar our $PROGNAME  => basename( $0 );
-Readonly::Scalar our $TEST_MODE => $options{test}  // false;
-Readonly::Scalar our $PROXY     => $options{proxy} // $ENV{PROXY} // $ENV{SOCKS_PROXY};
-Readonly::Scalar our $TIMEZONE  => $options{timezone} // "UTC";
-Readonly::Scalar our $TIMESTAMP => DateTime->now( time_zone => $TIMEZONE );
+Readonly::Scalar our $PROXY     => config_proxy();
 Readonly::Scalar our $OUTDIR    => $FindBin::Bin;
+
+#
+# Configuration wrapper functions for AlertGizmo::Config
+#
+
+# wrapper for AlertGizmo::Config read/write accessor
+sub config
+{
+    my ( $class, $keys_ref, $value ) = @_;
+    return AlertGizmo::Config->accessor( $keys_ref, $value );
+}
+
+# wrapper for AlertGizmo::Config existence-test method
+sub has_config
+{
+    my ( $class, @keys ) = @_;
+    return AlertGizmo::Config->contains( @keys );
+}
+
+# wrapper for AlertGizmo::Config delete method
+sub del_config
+{
+    my ( $class, @keys ) = @_;
+    return AlertGizmo::Config->del(@keys);
+}
+
+# accessor wrapper for options top-level config
+sub options
+{
+    my ( $class, $keys_ref, $value ) = @_;
+    return $class->config( [ "options", @$keys_ref ], $value );
+}
+
+# accessor wrapper for params top-level config
+sub params
+{
+    my ( $class, $keys_ref, $value ) = @_;
+    return $class->config( [ "params", @$keys_ref ], $value );
+}
+
+# accessor wrapper for paths top-level config
+sub paths
+{
+    my ( $class, $keys_ref, $value ) = @_;
+    return $class->config( [ "paths", @$keys_ref ], $value );
+}
+
+# accessor for test mode config
+sub config_test_mode
+{
+    return AlertGizmo::options( [ "test" ] ) // false;
+}
+
+# accessor for proxy config
+sub config_proxy
+{
+    return AlertGizmo::options( [ "proxy" ] ) // $ENV{PROXY} // $ENV{SOCKS_PROXY};
+}
+
+# accessor for timezone config
+sub config_timezone
+{
+    return AlertGizmo::options( [ "timezone" ] ) // "UTC";
+}
+
+# accessor for timestamp config
+sub config_timestamp
+{
+    if ( AlertGizmo::has_config( qw(params timestamp) ) {
+        return AlertGizmo::params( [ "timestamp" ] )
+    }
+    my $timestamp_str = DateTime->now( time_zone => config_timezone() );
+    AlertGizmo::params( [ "timezone" ], $timestamp_str );
+    return $timestamp_str;
+}
 
 #
 # common functions used by AlertGizmo feed monitors
@@ -68,10 +141,10 @@ sub main_inner
     if ( $subclassname->can( "cli_options" )) {
             push @cli_options, $subclassname->cli_options();
     }
-    GetOptions( \%AlertGizmo::options, @cli_options );
+    GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    $params{timestamp} = dt2dttz($TIMESTAMP);
+    $params{timestamp} = dt2dttz( config_timestamp() );
 
     # clear destination symlink
     $paths{outlink} = $OUTDIR . "/" . $OUTJSON;
@@ -80,7 +153,7 @@ sub main_inner
             croak "destination file $paths{outlink} is not a symlink";
         }
     }
-    $paths{outjson} = $paths{outlink} . "-" . $TIMESTAMP;
+    $paths{outjson} = $paths{outlink} . "-" . config_timestamp();
 
     # TODO - domain-specific processing via subclass override
 
@@ -97,7 +170,7 @@ sub main_inner
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
-    if ($TEST_MODE) {
+    if ( config_test_mode()) {
         say "test mode: params=" . Dumper(\%params);
         exit 0;
     }
