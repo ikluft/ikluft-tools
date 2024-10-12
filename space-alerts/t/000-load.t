@@ -19,5 +19,4 @@ foreach my $mod (@modules) {
     require_ok($mod);
 }
 
-require AlertGizmo;
 diag( "Testing AlertGizmo " . AlertGizmo->version() . ", Perl $], $^X" );
