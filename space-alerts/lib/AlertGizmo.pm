@@ -26,9 +26,7 @@ AlertGizmo::Config->accessor( [ "params" ], {} );
 AlertGizmo::Config->accessor( [ "paths" ], {} );
 
 # constants
-# FIXME - module has no CLI data during init; replace with functions that lazy-init configs after main() starts
 Readonly::Scalar our $PROGNAME  => basename( $0 );
-Readonly::Scalar our $PROXY     => config_proxy();
 Readonly::Scalar our $OUTDIR    => $FindBin::Bin;
 
 #
@@ -39,7 +37,14 @@ Readonly::Scalar our $OUTDIR    => $FindBin::Bin;
 sub config
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return AlertGizmo::Config->accessor( $keys_ref, $value );
+    my $result = AlertGizmo::Config->accessor( $keys_ref, $value );
+    if ( $result->is_err() ) {
+        if ( $result->isa( AlertGizmo::Config::NotFound )) {
+            # process not found error into undef result as common Perl code expects
+            return;
+        }
+    }
+    return $result->unwrap(); # returns on success, fatal error if any other than not found
 }
 
 # wrapper for AlertGizmo::Config existence-test method
@@ -92,14 +97,19 @@ sub config_proxy
 # accessor for timezone config
 sub config_timezone
 {
-    return AlertGizmo::options( [ "timezone" ] ) // "UTC";
+    if ( AlertGizmo::has_config( qw(params timezone) )) {
+        return AlertGizmo::params( [ "timezone" ] );
+    }
+    my $tz = AlertGizmo::options( [ "timezone" ] ) // "UTC"; # get TZ value from CLI options or default UTC
+    AlertGizmo::params( [ "timezone" ], $tz )->unwrap(); # save to template params
+    return $tz; # and return value to caller
 }
 
 # accessor for timestamp config
 sub config_timestamp
 {
-    if ( AlertGizmo::has_config( qw(params timestamp) ) {
-        return AlertGizmo::params( [ "timestamp" ] )
+    if ( AlertGizmo::has_config( qw(params timestamp) )) {
+        return AlertGizmo::params( [ "timestamp" ] );
     }
     my $timestamp_str = DateTime->now( time_zone => config_timezone() );
     AlertGizmo::params( [ "timezone" ], $timestamp_str );
@@ -144,16 +154,16 @@ sub main_inner
     GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    $params{timestamp} = dt2dttz( config_timestamp() );
+    params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
 
     # clear destination symlink
-    $paths{outlink} = $OUTDIR . "/" . $OUTJSON;
-    if ( -e $paths{outlink} ) {
-        if ( not -l $paths{outlink} ) {
-            croak "destination file $paths{outlink} is not a symlink";
+    paths( [ qw( outlink ) ], $OUTDIR . "/" . $OUTJSON );
+    if ( -e paths( [ qw( outlink ) ] ) ) {
+        if ( not -l paths( [ qw( outlink ) ] )) {
+            croak "destination file ".paths( [ qw( outlink ) ] )." is not a symlink";
         }
     }
-    $paths{outjson} = $paths{outlink} . "-" . config_timestamp();
+    paths( [ qw( outjson ) ], paths( [ qw( outlink ) ] ) . "-" . config_timestamp());
 
     # TODO - domain-specific processing via subclass override
 
