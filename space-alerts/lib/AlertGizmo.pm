@@ -65,21 +65,21 @@ sub del_config
 sub options
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "options", @$keys_ref ], $value );
+    return $class->config( [ "options", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor wrapper for params top-level config
 sub params
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "params", @$keys_ref ], $value );
+    return $class->config( [ "params", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor wrapper for paths top-level config
 sub paths
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "paths", @$keys_ref ], $value );
+    return $class->config( [ "paths", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor for test mode config
@@ -98,10 +98,10 @@ sub config_proxy
 sub config_timezone
 {
     if ( AlertGizmo::has_config( qw(params timezone) )) {
-        return AlertGizmo::params( [ "timezone" ] );
+        return __PACKAGE__->params( [ "timezone" ] );
     }
     my $tz = AlertGizmo::options( [ "timezone" ] ) // "UTC"; # get TZ value from CLI options or default UTC
-    AlertGizmo::params( [ "timezone" ], $tz )->unwrap(); # save to template params
+    __PACKAGE__->params( [ "timezone" ], $tz )->unwrap(); # save to template params
     return $tz; # and return value to caller
 }
 
@@ -109,10 +109,10 @@ sub config_timezone
 sub config_timestamp
 {
     if ( AlertGizmo::has_config( qw(params timestamp) )) {
-        return AlertGizmo::params( [ "timestamp" ] );
+        return __PACKAGE__->params( [ "timestamp" ] );
     }
     my $timestamp_str = DateTime->now( time_zone => config_timezone() );
-    AlertGizmo::params( [ "timezone" ], $timestamp_str );
+    __PACKAGE__->params( [ "timezone" ], $timestamp_str );
     return $timestamp_str;
 }
 
@@ -154,7 +154,7 @@ sub main_inner
     GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
+    __PACKAGE__->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
 
     # clear destination symlink
     paths( [ qw( outlink ) ], $OUTDIR . "/" . $OUTJSON );
@@ -176,21 +176,22 @@ sub main_inner
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $TEMPLATE, \%params, $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+    $template->process( $TEMPLATE, __PACKAGE__->params(), $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
     if ( config_test_mode()) {
-        say "test mode: params=" . Dumper(\%params);
+        say "test mode: params=" . Dumper( __PACKAGE__->params() );
         exit 0;
     }
 
     # make a symlink to new data
-    if ( -l $paths{outlink} ) {
-        unlink $paths{outlink};
+    if ( -l __PACKAGE__->paths( [ "outlink" ] ) ) {
+        unlink __PACKAGE__->paths( [ "outlink" ] );
     }
-    symlink basename( $paths{outjson} ), $paths{outlink}
-        or croak "failed to symlink " . $paths{outlink} . " to " . $paths{outjson} . "; $!";
+    symlink basename( __PACKAGE__->paths( [ "outjson" ] ) ), __PACKAGE__->paths( [ "outlink" ] )
+        or croak "failed to symlink " . __PACKAGE__->paths( [ "outlink" ] ) . " to "
+            . __PACKAGE__->paths( [ "outjson" ] ) . "; $!";
 
         # clean up old data files
     opendir( my $dh, $OUTDIR )
