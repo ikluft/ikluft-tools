@@ -85,34 +85,40 @@ sub paths
 # accessor for test mode config
 sub config_test_mode
 {
-    return AlertGizmo::options( [ "test" ] ) // false;
+    my $class = shift;
+    return $class->options( [ "test" ] ) // false;
 }
 
 # accessor for proxy config
 sub config_proxy
 {
-    return AlertGizmo::options( [ "proxy" ] ) // $ENV{PROXY} // $ENV{SOCKS_PROXY};
+    my $class = shift;
+    return $class->options( [ "proxy" ] ) // $ENV{PROXY} // $ENV{SOCKS_PROXY};
 }
 
 # accessor for timezone config
 sub config_timezone
 {
-    if ( AlertGizmo::has_config( qw(params timezone) )) {
-        return __PACKAGE__->params( [ "timezone" ] );
+    my $class = shift;
+
+    if ( $class->has_config( qw(params timezone) )) {
+        return $class->params( [ "timezone" ] );
     }
-    my $tz = AlertGizmo::options( [ "timezone" ] ) // "UTC"; # get TZ value from CLI options or default UTC
-    __PACKAGE__->params( [ "timezone" ], $tz )->unwrap(); # save to template params
+    my $tz = $class->options( [ "timezone" ] ) // "UTC"; # get TZ value from CLI options or default UTC
+    $class->params( [ "timezone" ], $tz )->unwrap(); # save to template params
     return $tz; # and return value to caller
 }
 
 # accessor for timestamp config
 sub config_timestamp
 {
-    if ( AlertGizmo::has_config( qw(params timestamp) )) {
-        return __PACKAGE__->params( [ "timestamp" ] );
+    my $class = shift;
+
+    if ( $class->has_config( qw(params timestamp) )) {
+        return $class->params( [ "timestamp" ] );
     }
-    my $timestamp_str = DateTime->now( time_zone => config_timezone() );
-    __PACKAGE__->params( [ "timezone" ], $timestamp_str );
+    my $timestamp_str = DateTime->now( time_zone => $class->config_timezone() );
+    $class->params( [ "timezone" ], $timestamp_str );
     return $timestamp_str;
 }
 
@@ -154,16 +160,13 @@ sub main_inner
     GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    __PACKAGE__->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
+    $subclassname->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
 
-    # clear destination symlink
-    paths( [ qw( outlink ) ], $OUTDIR . "/" . $OUTJSON );
-    if ( -e paths( [ qw( outlink ) ] ) ) {
-        if ( not -l paths( [ qw( outlink ) ] )) {
-            croak "destination file ".paths( [ qw( outlink ) ] )." is not a symlink";
-        }
+    # subclass-specific processing for before template
+    if ( $subclassname->can( "do_before_template" )) {
+        $subclassname->do_before_template();
     }
-    paths( [ qw( outjson ) ], paths( [ qw( outlink ) ] ) . "-" . config_timestamp());
+    
 
     # TODO - domain-specific processing via subclass override
 
@@ -176,24 +179,24 @@ sub main_inner
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $TEMPLATE, __PACKAGE__->params(), $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+    $template->process( $TEMPLATE, $subclassname->params(), $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
     if ( config_test_mode()) {
-        say "test mode: params=" . Dumper( __PACKAGE__->params() );
+        say "test mode: params=" . Dumper( $subclassname->params() );
         exit 0;
     }
 
     # make a symlink to new data
-    if ( -l __PACKAGE__->paths( [ "outlink" ] ) ) {
-        unlink __PACKAGE__->paths( [ "outlink" ] );
+    if ( -l $subclassname->paths( [ "outlink" ] ) ) {
+        unlink $subclassname->paths( [ "outlink" ] );
     }
-    symlink basename( __PACKAGE__->paths( [ "outjson" ] ) ), __PACKAGE__->paths( [ "outlink" ] )
-        or croak "failed to symlink " . __PACKAGE__->paths( [ "outlink" ] ) . " to "
-            . __PACKAGE__->paths( [ "outjson" ] ) . "; $!";
+    symlink basename( $subclassname->paths( [ "outjson" ] ) ), $subclassname->paths( [ "outlink" ] )
+        or croak "failed to symlink " . $subclassname->paths( [ "outlink" ] ) . " to "
+            . $subclassname->paths( [ "outjson" ] ) . "; $!";
 
-        # clean up old data files
+    # clean up old data files
     opendir( my $dh, $OUTDIR )
         or croak "Can't open $OUTDIR: $!";
     my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
