@@ -152,6 +152,11 @@ sub main_inner
         croak "error: $subclassname is not a subclass of ".__PACKAGE__;
     }
 
+    # let subclass do any initialization it needs
+    if ( $subclassname->can( "subclass_init" )) {
+        $subclassname->subclass_init();
+    }
+
     # load subclass-specific argument list, then read command line arguments
     my @cli_options = ( "test|test_mode", "proxy:s", "timezone|tz:s" );
     if ( $subclassname->can( "cli_options" )) {
@@ -166,9 +171,6 @@ sub main_inner
     if ( $subclassname->can( "do_before_template" )) {
         $subclassname->do_before_template();
     }
-    
-
-    # TODO - domain-specific processing via subclass override
 
     # process template
     my $config = {
