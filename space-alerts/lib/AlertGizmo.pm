@@ -168,8 +168,8 @@ sub main_inner
     $subclassname->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
 
     # subclass-specific processing for before template
-    if ( $subclassname->can( "do_before_template" )) {
-        $subclassname->do_before_template();
+    if ( $subclassname->can( "pre_template" )) {
+        $subclassname->pre_template();
     }
 
     # process template
@@ -192,7 +192,7 @@ sub main_inner
 
     # make a symlink to new data
     if ( -l $subclassname->paths( [ "outlink" ] ) ) {
-        unlink $subclassname->paths( [ "outlink" ] );
+        unlink $subclassname->pathssubclass_init
     }
     symlink basename( $subclassname->paths( [ "outjson" ] ) ), $subclassname->paths( [ "outlink" ] )
         or croak "failed to symlink " . $subclassname->paths( [ "outlink" ] ) . " to "

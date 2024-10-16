@@ -34,7 +34,7 @@ Readonly::Scalar my $UC_NDASH => "\N{en dash}";                    # Unicode das
 Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plus-minus sign
 
 # class method AlertGizmo (parent) calls before template processing
-sub do_before_template
+sub pre_template
 {
     my $class = shift;
 
