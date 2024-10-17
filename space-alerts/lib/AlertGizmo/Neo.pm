@@ -39,7 +39,7 @@ sub pre_template
     my $class = shift;
 
     # clear destination symlink
-    $class->paths( [ qw( outlink ) ], $OUTDIR . "/" . $OUTJSON );
+    $class->paths( [ qw( outlink ) ], $class->config_dir() . "/" . $OUTJSON );
     if ( -e paths( [ qw( outlink ) ] ) ) {
         if ( not -l $class->paths( [ qw( outlink ) ] )) {
             croak "destination file " . $class->paths( [ qw( outlink ) ] ) . " is not a symlink";

@@ -27,7 +27,8 @@ AlertGizmo::Config->accessor( [ "paths" ], {} );
 
 # constants
 Readonly::Scalar our $PROGNAME  => basename( $0 );
-Readonly::Scalar our $OUTDIR    => $FindBin::Bin;
+Readonly::Array  our @CLI_OPTIONS => qw( "dir:s", "test|test_mode", "proxy:s", "timezone|tz:s" );
+Readonly::Scalar our $DEFAULT_OUTPUT_DIR    => $FindBin::Bin;
 
 #
 # Configuration wrapper functions for AlertGizmo::Config
@@ -122,6 +123,28 @@ sub config_timestamp
     return $timestamp_str;
 }
 
+# accessor for output directory config
+# It should not be necessary for subclasses to override this. But it's technically possible.
+sub config_dir
+{
+    my $class = shift;
+
+    if ( $class->has_config( qw(params output_dir) )) {
+        return $class->params( [ "output_dir" ] );
+    }
+    my $dir;
+    if ( $class->has_config( qw(options dir) )) {
+        $dir = $class->options( [ "dir" ] );
+    } else {
+        $dir = $DEFAULT_OUTPUT_DIR;
+    }
+    my $result = $class->params( [ "output_dir" ], $dir );
+    if ( not $result->ok()) {
+        croak "failed to save output_dir param ($dir)";
+    }
+    return $dir;
+}
+
 #
 # common functions used by AlertGizmo feed monitors
 #
@@ -158,7 +181,7 @@ sub main_inner
     }
 
     # load subclass-specific argument list, then read command line arguments
-    my @cli_options = ( "test|test_mode", "proxy:s", "timezone|tz:s" );
+    my @cli_options = ( @CLI_OPTIONS );
     if ( $subclassname->can( "cli_options" )) {
             push @cli_options, $subclassname->cli_options();
     }
@@ -174,14 +197,15 @@ sub main_inner
 
     # process template
     my $config = {
-        INCLUDE_PATH => $OUTDIR,    # or list ref
+        INCLUDE_PATH => $subclassname->config_dir(),
         INTERPOLATE  => 1,          # expand "$var" in plain text
         POST_CHOMP   => 1,          # cleanup whitespace
-                                    #PRE_PROCESS  => 'header',        # prefix each template
+                                    # PRE_PROCESS  => 'header',        # prefix each template
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $TEMPLATE, $subclassname->params(), $OUTDIR . "/" . $OUTHTML, binmode => ':utf8' )
+    $template->process( $TEMPLATE, $subclassname->params(), $subclassname->config_dir() . "/" . $OUTHTML,
+        binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
@@ -199,8 +223,8 @@ sub main_inner
             . $subclassname->paths( [ "outjson" ] ) . "; $!";
 
     # clean up old data files
-    opendir( my $dh, $OUTDIR )
-        or croak "Can't open $OUTDIR: $!";
+    opendir( my $dh, $subclassname->config_dir() )
+        or croak "Can't open $subclassname->config_dir(): $!";
     my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
     closedir $dh;
     if ( scalar @datafiles > 5 ) {
@@ -210,7 +234,7 @@ sub main_inner
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = "$OUTDIR/$oldfile";
+            my $delpath = $subclassname->config_dir()."/".$oldfile;
             next if not -e $delpath;               # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
 
