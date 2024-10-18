@@ -204,8 +204,8 @@ sub main_inner
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $TEMPLATE, $subclassname->params(), $subclassname->config_dir() . "/" . $OUTHTML,
-        binmode => ':utf8' )
+    $template->process( $subclassname->path_template(), $subclassname->params(), $subclassname->config_dir()
+        . "/" . $OUTHTML, binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files

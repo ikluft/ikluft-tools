@@ -33,6 +33,15 @@ Readonly::Scalar my $UC_QMARK => "\N{fullwidth question mark}";    # Unicode que
 Readonly::Scalar my $UC_NDASH => "\N{en dash}";                    # Unicode dash
 Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plus-minus sign
 
+# get template path for this subclass
+# class method
+sub path_template
+{
+    my $class = shift;
+
+    return $TEMPLATE;
+}
+
 # class method AlertGizmo (parent) calls before template processing
 sub pre_template
 {
@@ -49,4 +58,10 @@ sub pre_template
     return;
 }
 
+sub post_template
+{
+    my $class = shift;
+
+    # TODO
+}
 1;
