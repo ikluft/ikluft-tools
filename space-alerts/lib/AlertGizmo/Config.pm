@@ -110,7 +110,7 @@ sub _mk_hoh_path
 {
     my ($class, @path) = @_;
     my $instance = __PACKAGE__->instance();
-    my $node_ref = $instance->{ $path[0] };
+    my $node_ref = ( scalar @path > 0 ) ? $instance->{ $path[0] } : $instance;
 
     # descend tree creating nodes if necessary
     for my $index ( 1 .. ( scalar @path - 1 )) {
@@ -183,7 +183,7 @@ sub write_accessor
     }
     my $node = $hoh_result->unwrap();
     $node->{ $last_key } = $value;
-    return ok();
+    return $hoh_result->ok();
 }
 
 # configuration read/write accessor
