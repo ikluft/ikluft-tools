@@ -37,9 +37,14 @@ Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plu
 # class method
 sub path_template
 {
-    my $class = shift;
-
     return $TEMPLATE;
+}
+
+# get output file path for this subclass
+# class method
+sub path_output
+{
+    return $OUTHTML;
 }
 
 # class method AlertGizmo (parent) calls before template processing
@@ -62,6 +67,34 @@ sub post_template
 {
     my $class = shift;
 
-    # TODO
+    # make a symlink to new data
+    if ( -l $subclassname->paths( [ "outlink" ] ) ) {
+        unlink $subclassname->pathssubclass_init
+    }
+    symlink basename( $subclassname->paths( [ "outjson" ] ) ), $subclassname->paths( [ "outlink" ] )
+        or croak "failed to symlink " . $subclassname->paths( [ "outlink" ] ) . " to "
+            . $subclassname->paths( [ "outjson" ] ) . "; $!";
+
+    # clean up old data files
+    opendir( my $dh, $subclassname->config_dir() )
+        or croak "Can't open $subclassname->config_dir(): $!";
+    my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
+    closedir $dh;
+    if ( scalar @datafiles > 5 ) {
+        splice @datafiles, 0, 5;
+        foreach my $oldfile (@datafiles) {
+
+            # double check we're only removing old JSON files
+            next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
+
+            my $delpath = $subclassname->config_dir()."/".$oldfile;
+            next if not -e $delpath;               # skip if the file doesn't exist
+            next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
+
+            is_interactive() and say "removing $delpath";
+            unlink $delpath;
+        }
+    }
+    return;
 }
 1;

@@ -27,7 +27,7 @@ AlertGizmo::Config->accessor( [ "paths" ], {} );
 
 # constants
 Readonly::Scalar our $PROGNAME  => basename( $0 );
-Readonly::Array  our @CLI_OPTIONS => qw( "dir:s", "test|test_mode", "proxy:s", "timezone|tz:s" );
+Readonly::Array  our @CLI_OPTIONS => ( "dir:s", "test|test_mode", "proxy:s", "timezone|tz:s" );
 Readonly::Scalar our $DEFAULT_OUTPUT_DIR    => $FindBin::Bin;
 
 #
@@ -205,7 +205,7 @@ sub main_inner
     };
     my $template = Template->new($config);
     $template->process( $subclassname->path_template(), $subclassname->params(), $subclassname->config_dir()
-        . "/" . $OUTHTML, binmode => ':utf8' )
+        . "/" . $subclassname->path_output(), binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
@@ -214,33 +214,9 @@ sub main_inner
         exit 0;
     }
 
-    # make a symlink to new data
-    if ( -l $subclassname->paths( [ "outlink" ] ) ) {
-        unlink $subclassname->pathssubclass_init
-    }
-    symlink basename( $subclassname->paths( [ "outjson" ] ) ), $subclassname->paths( [ "outlink" ] )
-        or croak "failed to symlink " . $subclassname->paths( [ "outlink" ] ) . " to "
-            . $subclassname->paths( [ "outjson" ] ) . "; $!";
-
-    # clean up old data files
-    opendir( my $dh, $subclassname->config_dir() )
-        or croak "Can't open $subclassname->config_dir(): $!";
-    my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
-    closedir $dh;
-    if ( scalar @datafiles > 5 ) {
-        splice @datafiles, 0, 5;
-        foreach my $oldfile (@datafiles) {
-
-            # double check we're only removing old JSON files
-            next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
-
-            my $delpath = $subclassname->config_dir()."/".$oldfile;
-            next if not -e $delpath;               # skip if the file doesn't exist
-            next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
-
-            is_interactive() and say "removing $delpath";
-            unlink $delpath;
-        }
+    # subclass-specific processing for after template
+    if ( $subclassname->can( "post_template" )) {
+        $subclassname->post_template();
     }
 
     return;
