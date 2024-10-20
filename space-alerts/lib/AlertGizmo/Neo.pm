@@ -17,6 +17,7 @@ use autodie;
 use experimental qw(builtin try);
 use feature      qw(say try);
 use builtin      qw(true false);
+use charnames qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
 
