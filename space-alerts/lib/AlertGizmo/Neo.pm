@@ -68,16 +68,16 @@ sub post_template
     my $class = shift;
 
     # make a symlink to new data
-    if ( -l $subclassname->paths( [ "outlink" ] ) ) {
-        unlink $subclassname->pathssubclass_init
+    if ( -l $class->paths( [ "outlink" ] ) ) {
+        unlink $class->pathssubclass_init
     }
-    symlink basename( $subclassname->paths( [ "outjson" ] ) ), $subclassname->paths( [ "outlink" ] )
-        or croak "failed to symlink " . $subclassname->paths( [ "outlink" ] ) . " to "
-            . $subclassname->paths( [ "outjson" ] ) . "; $!";
+    symlink basename( $class->paths( [ "outjson" ] ) ), $class->paths( [ "outlink" ] )
+        or croak "failed to symlink " . $class->paths( [ "outlink" ] ) . " to "
+            . $class->paths( [ "outjson" ] ) . "; $!";
 
     # clean up old data files
-    opendir( my $dh, $subclassname->config_dir() )
-        or croak "Can't open $subclassname->config_dir(): $!";
+    opendir( my $dh, $class->config_dir() )
+        or croak "Can't open $class->config_dir(): $!";
     my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
     closedir $dh;
     if ( scalar @datafiles > 5 ) {
@@ -87,7 +87,7 @@ sub post_template
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = $subclassname->config_dir()."/".$oldfile;
+            my $delpath = $class->config_dir()."/".$oldfile;
             next if not -e $delpath;               # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
 
