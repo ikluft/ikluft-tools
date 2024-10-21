@@ -200,7 +200,6 @@ sub main_inner
         INCLUDE_PATH => $subclassname->config_dir(),
         INTERPOLATE  => 1,          # expand "$var" in plain text
         POST_CHOMP   => 1,          # cleanup whitespace
-                                    # PRE_PROCESS  => 'header',        # prefix each template
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
