@@ -156,8 +156,9 @@ sub dt2dttz
     return $dt->ymd('-') . " " . $dt->hms(':') . " " . $dt->time_zone_short_name();
 }
 
-# inner mainline called from main() exception-catching wrapper
-sub main_inner
+# generate class name from program name
+# class function
+sub gen_class_name
 {
     # use the name of the script to determine which AlertGizmo subclass to load
     my $progname = $PROGNAME;
@@ -174,48 +175,50 @@ sub main_inner
     if ( not $subclassname->isa( __PACKAGE__ )) {
         croak "error: $subclassname is not a subclass of ".__PACKAGE__;
     }
+    return $subclassname;
+}
 
-    # let subclass do any initialization it needs
-    if ( $subclassname->can( "subclass_init" )) {
-        $subclassname->subclass_init();
-    }
+# inner mainline called from main() exception-catching wrapper
+sub main_inner
+{
+    my $class = gen_class_name();
 
     # load subclass-specific argument list, then read command line arguments
     my @cli_options = ( @CLI_OPTIONS );
-    if ( $subclassname->can( "cli_options" )) {
-            push @cli_options, $subclassname->cli_options();
+    if ( $class->can( "cli_options" )) {
+            push @cli_options, $class->cli_options();
     }
     GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    $subclassname->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
+    $class->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
 
     # subclass-specific processing for before template
-    if ( $subclassname->can( "pre_template" )) {
-        $subclassname->pre_template();
+    if ( $class->can( "pre_template" )) {
+        $class->pre_template();
     }
 
     # process template
     my $config = {
-        INCLUDE_PATH => $subclassname->config_dir(),
+        INCLUDE_PATH => $class->config_dir(),
         INTERPOLATE  => 1,          # expand "$var" in plain text
         POST_CHOMP   => 1,          # cleanup whitespace
         EVAL_PERL    => 0,          # evaluate Perl code blocks
     };
     my $template = Template->new($config);
-    $template->process( $subclassname->path_template(), $subclassname->params(), $subclassname->config_dir()
-        . "/" . $subclassname->path_output(), binmode => ':utf8' )
+    $template->process( $class->path_template(), $class->params(), $class->config_dir()
+        . "/" . $class->path_output(), binmode => ':utf8' )
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
     if ( config_test_mode()) {
-        say "test mode: params=" . Dumper( $subclassname->params() );
+        say "test mode: params=" . Dumper( $class->params() );
         exit 0;
     }
 
     # subclass-specific processing for after template
-    if ( $subclassname->can( "post_template" )) {
-        $subclassname->post_template();
+    if ( $class->can( "post_template" )) {
+        $class->post_template();
     }
 
     return;
