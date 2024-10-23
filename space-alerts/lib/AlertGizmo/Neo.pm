@@ -20,8 +20,10 @@ use builtin      qw(true false);
 use charnames qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
+use IO::Interactive qw(is_interactive);
 
 # constants
+Readonly::Scalar my $BACK_DAYS => 15;
 Readonly::Scalar my $NEO_API_URL =>
     "https://ssd-api.jpl.nasa.gov/cad.api?dist-max=2LD&sort=-date&diameter=true&date-min=%s";
 Readonly::Scalar my $NEO_LINK_URL =>
@@ -52,6 +54,12 @@ sub path_output
 sub pre_template
 {
     my $class = shift;
+
+    # compute query start date from $BACK_DAYS days ago
+    my $timestamp = $class->config_timestamp();
+    my $start_date = $timestamp->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
+    $class->params( [ "start_date" ], $start_date );
+    is_interactive() and say "start date: " . $start_date;
 
     # clear destination symlink
     $class->paths( [ qw( outlink ) ], $class->config_dir() . "/" . $OUTJSON );
