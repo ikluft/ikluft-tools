@@ -21,6 +21,8 @@ use charnames qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
 use IO::Interactive qw(is_interactive);
+use JSON;
+use URI::Escape;
 
 # constants
 Readonly::Scalar my $BACK_DAYS => 15;
@@ -50,6 +52,8 @@ sub path_output
     return $OUTHTML;
 }
 
+# TODO bring in functions from pull-nasa-neo.pl script here
+
 # class method AlertGizmo (parent) calls before template processing
 sub pre_template
 {
@@ -69,6 +73,69 @@ sub pre_template
         }
     }
     $class->paths( [ qw( outjson ) ], $class->paths( [ qw( outlink ) ] ) . "-" . $class->config_timestamp());
+
+    # perform NEO query
+    $class->do_neo_query();
+
+    # read JSON into template data
+    # in case of JSON error, allow these to crash the program here before proceeding to symlinks
+    my $json_path = $class->config_test_mode()
+        ? $class->paths( [ qw( outlink ) ] )
+        : $class->paths( [ qw( outjson ) ] );
+    my $json_text = File::Slurp::read_file($json_path);
+    $class->params( [ "json" ], JSON::from_json $json_text );
+    my $json_data = $class->params( [ qw( json data ) ] );
+
+    # check API version number
+    my $api_version = $class->params( [ qw( json signature version ) ] );
+    if ( $api_version ne "1.5" ) {
+        croak "API version changed to " . $api_version . " - code needs update to handle it";
+    }
+
+    # collect field names/numbers from JSON
+    $class->params( [ "fnum" ], {} );
+    my $fields_ref = $class->params( [ qw( json fields ) ] );
+    for ( my $fnum = 0 ; $fnum < scalar @$fields_ref ; $fnum++ ) {
+        $class->params( [ "fnum", $fields_ref->[$fnum] ], $fnum );
+    }
+
+    # convert API results to template-able list
+    $class->params( [ "neos" ], [] );
+    my $neos_ref = $class->params( [ "neos" ] );
+    foreach my $raw_item ( @$json_data ) {
+
+        # start NEO record
+        my %item;
+        $item{des}   = $raw_item->[ $class->params( [ qw( fnum des ) ] ) ];
+        $item{cd}    = $raw_item->[ $class->params( [ qw( fnum cd ) ] ) ];
+        $item{v_rel} = int( $raw_item->[ $class->params( [ qw( fnum v_rel ) ] ) ] + 0.5 );
+
+        # distance computation
+        foreach my $param_name (qw(dist dist_min dist_max)) {
+            $item{$param_name} = get_dist_km( $param_name, $raw_item, $class->params() );
+        }
+
+        # closest approact in local timezone (for mouseover text)
+        my $cd_dt = DateTime::Format::Flexible->parse_datetime( $item{cd} . ":00 UTC" )
+            ->set_time_zone( $class->config_timezone() );
+        $item{cd_local} = dt2dttz($cd_dt);
+
+        # background color computation based on distance
+        $item{bgcolor} = dist2bgcolor( $item{dist} );
+
+        # diameter is not always known - must deal with missing or null values
+        $item{diameter} = get_diameter( $raw_item, $class->params() );
+
+        # cell background for diameter
+        $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
+
+        # save NASA NEO web URL
+        $item{link} = $NEO_LINK_URL . URI::Escape::uri_escape_utf8( $item{des} );
+
+        # save NEO record
+        push @$neos_ref, \%item;
+    }
+
     return;
 }
 
