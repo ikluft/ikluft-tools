@@ -54,6 +54,57 @@ sub path_output
 
 # TODO bring in functions from pull-nasa-neo.pl script here
 
+# convert magnitude (h) to estimated diameter in m
+sub h_to_diameter_m
+{
+    my ( $h, $p ) = @_;
+    my $ee = -0.2 * $h;
+    return 1329.0 / sqrt($p) * ( 10**$ee ) * 1000.0;
+}
+
+# get diameter as a printable string
+# if diameter data exists, format diameter +/- diameter_sigma
+# otherwise estimate diameter from magnitude (see https://www.physics.sfasu.edu/astro/asteroids/sizemagnitude.html )
+sub get_diameter
+{
+    my ( $class, $raw_item, $params ) = @_;
+
+    # if diameter data was provided, use it
+    my $fnum_diameter = $class->params( [ qw( fnum diameter ) ] );
+    if (    ( exists $raw_item->[ $fnum_diameter ] )
+        and ( defined $raw_item->[ $fnum_diameter ] )
+        and ( $raw_item->[ $fnum_diameter ] ne "null" ) )
+    {
+        # diameter data found - format it with or without diameter_sigma
+        my $diameter = "" . int( $raw_item->[ $fnum_diameter * 1000.0 ] + 0.5 );
+        my $fnum_diameter_sigma = $class->params( [ qw( fnum diameter_sigma ) ] );
+        if (    ( exists $raw_item->[ $fnum_diameter_sigma ] )
+            and ( defined $raw_item->[ $fnum_diameter_sigma ] )
+            and ( $raw_item->[ $fnum_diameter_sigma ] ne "null" ) )
+        {
+            $diameter .= " "
+                . $UC_PLMIN . " "
+                . int( $raw_item->[ $fnum_diameter_sigma ] * 1000.0 + 0.5 );
+        }
+        return $diameter;
+    }
+
+    # if magnitude data was provided, estimate diameter from it
+    # according to API definition, h (absolute magnitude) should be provided
+    my $fnum_h = $class->params( [ qw( fnum h ) ] );
+    if (    ( exists $raw_item->[ $fnum_h ] )
+        and ( defined $raw_item->[ $fnum_h ] )
+        and ( $raw_item->[ $fnum_h ] ne "null" ) )
+    {
+        my $min = int( h_to_diameter_m( $raw_item->[ $fnum_h ], 0.25 ) + 0.5 );
+        my $max = int( h_to_diameter_m( $raw_item->[ $fnum_h ], 0.05 ) + 0.5 );
+        return $min . $UC_NDASH . $max;
+    }
+
+ # if diameter and magnitude were both unknown, deal with missing data by displaying a question mark
+    return $UC_QMARK;
+}
+
 # class method AlertGizmo (parent) calls before template processing
 sub pre_template
 {
@@ -124,7 +175,7 @@ sub pre_template
         $item{bgcolor} = dist2bgcolor( $item{dist} );
 
         # diameter is not always known - must deal with missing or null values
-        $item{diameter} = get_diameter( $raw_item, $class->params() );
+        $item{diameter} = $class->get_diameter( $raw_item, $class->params() );
 
         # cell background for diameter
         $item{diameter_bgcolor} = diameter2bgcolor( $item{diameter} );
@@ -173,4 +224,5 @@ sub post_template
     }
     return;
 }
+
 1;
