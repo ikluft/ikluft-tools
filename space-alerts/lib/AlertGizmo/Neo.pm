@@ -34,6 +34,7 @@ Readonly::Scalar my $OUTJSON  => "neo-data.json";
 Readonly::Scalar my $TEMPLATE => "close-approaches.tt";
 Readonly::Scalar my $OUTHTML  => "close-approaches.html";
 Readonly::Scalar my $E_RADIUS => 6378;
+Readonly::Scalar my $KM_IN_AU => 1.4959787e+08;
 Readonly::Scalar my $UC_QMARK => "\N{fullwidth question mark}";    # Unicode question mark
 Readonly::Scalar my $UC_NDASH => "\N{en dash}";                    # Unicode dash
 Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plus-minus sign
@@ -53,6 +54,16 @@ sub path_output
 }
 
 # TODO bring in functions from pull-nasa-neo.pl script here
+
+# get distance as km (convert from AU)
+sub get_dist_km
+{
+    my ( $class, $param_name, $raw_item, $params ) = @_;
+
+    my $dist_au = $raw_item->[ $class->params( [ "fnum", $param_name ] ) ];
+    my $dist_km = $dist_au * $KM_IN_AU;
+    return int( $dist_km + 0.5 );
+}
 
 # convert magnitude (h) to estimated diameter in m
 sub h_to_diameter_m
@@ -163,7 +174,7 @@ sub pre_template
 
         # distance computation
         foreach my $param_name (qw(dist dist_min dist_max)) {
-            $item{$param_name} = get_dist_km( $param_name, $raw_item, $class->params() );
+            $item{$param_name} = $class->get_dist_km( $param_name, $raw_item, $class->params() );
         }
 
         # closest approact in local timezone (for mouseover text)
