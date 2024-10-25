@@ -258,7 +258,7 @@ sub get_diameter
         {
             $diameter .= " "
                 . $UC_PLMIN . " "
-                . int( $raw_item->[ $params->{fnum}{diameter_sigma} * 1000.0 ] + 0.5 );
+                . int( $raw_item->[ $params->{fnum}{diameter_sigma} ] * 1000.0 + 0.5 );
         }
         return $diameter;
     }
