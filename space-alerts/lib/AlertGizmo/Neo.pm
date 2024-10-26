@@ -55,10 +55,58 @@ sub path_output
 
 # TODO bring in functions from pull-nasa-neo.pl script here
 
+# perform NEO query and save result in named file
+sub do_neo_query
+{
+    my $class = @_;
+
+    # perform NEO query
+    if ( $class->config_test_mode() ) {
+        if ( not -e $class->paths( [ "outlink" ] ) ) {
+            croak "test mode requires " . $class->paths( [ "outlink" ] ) . " to exist";
+        }
+        say "*** skip API access in test mode ***";
+    } else {
+        my $url = sprintf $NEO_API_URL, $class->params( [ "start_date" ] );
+        my ( $outstr, $errstr );
+        my $proxy = $class->config_proxy();
+        my @cmd = (
+            "/usr/bin/curl", "--silent", ( ( defined $proxy ) ? ( "--proxy", $proxy ) : () ),
+            "--output", $class->paths( [ "outjson" ] ), $url
+        );
+        IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
+
+        # check results of query
+        if ( $? == -1 ) {
+            confess "failed to execute command (" . join( " ", @cmd ) . "): $!";
+        }
+        my $retcode = $? >> 8;
+        if ( $? & 127 ) {
+            confess sprintf "command ("
+                . join( " ", @cmd )
+                . " child died with signal %d, %s coredump\n",
+                ( $? & 127 ), ( $? & 128 ) ? 'with' : 'without';
+        }
+        if ( $retcode != 0 ) {
+            confess sprintf "command (" . join( " ", @cmd ) . " exited with code $retcode";
+        }
+        if ( -z $class->paths( [ "outjson" ] ) ) {
+            croak "JSON data file " . $class->paths( [ "outjson" ] ) . " is empty";
+        }
+        if ($errstr) {
+            say "stderr from command: $errstr";
+        }
+        if ($outstr) {
+            say "stdout from command: $outstr";
+        }
+    }
+    return;
+}
+
 # get distance as km (convert from AU)
 sub get_dist_km
 {
-    my ( $class, $param_name, $raw_item, $params ) = @_;
+    my ( $class, $param_name, $raw_item ) = @_;
 
     my $dist_au = $raw_item->[ $class->params( [ "fnum", $param_name ] ) ];
     my $dist_km = $dist_au * $KM_IN_AU;
@@ -78,7 +126,7 @@ sub h_to_diameter_m
 # otherwise estimate diameter from magnitude (see https://www.physics.sfasu.edu/astro/asteroids/sizemagnitude.html )
 sub get_diameter
 {
-    my ( $class, $raw_item, $params ) = @_;
+    my ( $class, $raw_item ) = @_;
 
     # if diameter data was provided, use it
     my $fnum_diameter = $class->params( [ qw( fnum diameter ) ] );
