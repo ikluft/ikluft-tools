@@ -55,6 +55,19 @@ sub path_output
 
 # TODO bring in functions from pull-nasa-neo.pl script here
 
+# compute bgcolor for table cell based on NEO diameter
+sub diameter2bgcolor
+{
+    # background color computation based on distance
+    my $diameter_min_km = shift;
+    my ( $red, $green, $blue );
+
+    ( $red, $green, $blue ) = _diameter2rgb($diameter_min_km);
+
+    # return RGB string
+    return sprintf( "#%02X%02X%02X", $red, $green, $blue );
+}
+
 # perform NEO query and save result in named file
 sub do_neo_query
 {
