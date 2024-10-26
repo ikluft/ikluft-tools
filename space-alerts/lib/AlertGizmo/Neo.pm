@@ -55,6 +55,56 @@ sub path_output
 
 # TODO bring in functions from pull-nasa-neo.pl script here
 
+# internal computation for bgcolor for each table, called by dist2bgcolor()
+sub _dist2rgb
+{
+    my $dist = shift;
+
+    # green for over 350000km
+    if ( $dist >= 350000 ) {
+        return ( 0, 255, 0 );
+    }
+
+    # 150k-250k km -> ramp from green #00FF00 to yellow #FFFF00
+    if ( $dist >= 250000 ) {
+        my $ramp = 255 - int( ( $dist - 250000 ) / 100000 * 255 );
+        return ( $ramp, 255, 0 );
+    }
+
+    # 50k-150k km -> ramp from yellow #7F7F00 to orange #7F5300
+    if ( $dist >= 150000 ) {
+        my $ramp = 165 + int( ( $dist - 150000 ) / 100000 * 91 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # 50k-150k km -> ramp from orange #7F5300 to red #7F0000
+    if ( $dist >= 50000 ) {
+        my $ramp = int( ( $dist - 50000 ) / 100000 * 165 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # surface-50000 km -> red bg
+    if ( $dist >= $E_RADIUS ) {
+        return ( 255, 0, 0 );
+    }
+
+    # less than surface -> BlueViolet bg (impact!)
+    return ( 138, 43, 226 );
+}
+
+# compute bgcolor for each table row based on NEO distance at closest approach
+sub dist2bgcolor
+{
+    # background color computation based on distance
+    my $dist_min_km = shift;
+    my ( $red, $green, $blue );
+
+    ( $red, $green, $blue ) = _dist2rgb($dist_min_km);
+
+    # return RGB string
+    return sprintf( "#%02X%02X%02X", $red, $green, $blue );
+}
+
 # internal computation for bgcolor for table cell, called by diameter2bgcolor()
 sub _diameter2rgb
 {
