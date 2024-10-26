@@ -55,6 +55,55 @@ sub path_output
 
 # TODO bring in functions from pull-nasa-neo.pl script here
 
+# internal computation for bgcolor for table cell, called by diameter2bgcolor()
+sub _diameter2rgb
+{
+    my $diameter_str = shift;
+
+    # deal with unknown diameter
+    if ( $diameter_str eq $UC_QMARK ) {
+        return ( 192, 192, 192 );
+    }
+
+    my $diameter;
+    if ( $diameter_str =~ /^ ( \d+ ) $UC_NDASH ( \d+ ) $/x ) {
+
+        # if an estimated range of diameters was provided, use the top end for the cell color
+        $diameter = int($2);
+    } else {
+
+        # otherwise use the initial integer as a median value
+        $diameter_str =~ s/[^\d] .*//x;
+        $diameter = int($diameter_str);
+    }
+
+    # green for under 20m
+    if ( $diameter <= 30 ) {
+        return ( 0, 255, 0 );
+    }
+
+    # 20-75m -> ramp from green #00FF00 to yellow #FFFF00
+    if ( $diameter <= 75 ) {
+        my $ramp = int( ( $diameter - 20 ) / 55 * 255 );
+        return ( $ramp, 255, 0 );
+    }
+
+    # 75-140m -> ramp from yellow #7F7F00 to orange #7F5300
+    if ( $diameter <= 140 ) {
+        my $ramp = 165 + int( ( $diameter - 75 ) / 65 * 91 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # 140-1000m -> ramp from orange #7F5300 to red #7F0000
+    if ( $diameter <= 1000 ) {
+        my $ramp = int( ( $diameter - 140 ) / 860 * 165 );
+        return ( 255, $ramp, 0 );
+    }
+
+    # over 1000m -> red bg
+    return ( 255, 0, 0 );
+}
+
 # compute bgcolor for table cell based on NEO diameter
 sub diameter2bgcolor
 {
