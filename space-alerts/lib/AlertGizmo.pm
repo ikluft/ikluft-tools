@@ -19,6 +19,9 @@ use Readonly;
 use Carp qw(croak confess);
 use AlertGizmo::Config;
 use File::Basename;
+use Getopt::Long;
+use Template;
+use Data::Dumper;
 
 # initialize class static variables
 AlertGizmo::Config->accessor( [ "options" ], {} );
