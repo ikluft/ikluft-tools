@@ -183,6 +183,7 @@ sub write_accessor : Result
     }
     my $node = $hoh_result->unwrap();
     $node->{ $last_key } = $value;
+    return if not defined wantarray;
     return ok();
 }
 
