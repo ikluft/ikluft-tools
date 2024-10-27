@@ -33,6 +33,21 @@ Readonly::Scalar our $PROGNAME  => basename( $0 );
 Readonly::Array  our @CLI_OPTIONS => ( "dir:s", "test|test_mode", "proxy:s", "timezone|tz:s" );
 Readonly::Scalar our $DEFAULT_OUTPUT_DIR    => $FindBin::Bin;
 
+# return AlertGizmo (or subclass) version number
+sub version
+{
+    my $class = shift;
+    {
+        ## no critic (TestingAndDebugging::ProhibitNoStrict)
+        no strict 'refs';
+        if ( defined ${ $class . "::VERSION" } ) {
+            return ${ $class . "::VERSION" };
+        }
+    }
+    return "00-dev";
+}
+
+
 #
 # Configuration wrapper functions for AlertGizmo::Config
 #
@@ -148,6 +163,18 @@ sub config_dir
     return $dir;
 }
 
+# class method to set the subclass it was called as to provide the implementation for this run
+sub set_class
+{
+    my $class = shift;
+
+    if ( not $class->isa( __PACKAGE__ )) {
+        croak "error: $class is not a subclass of ".__PACKAGE__;
+    }
+    $class->config( [ "class" ], $class );
+    return;
+}
+
 #
 # common functions used by AlertGizmo feed monitors
 #
@@ -163,6 +190,11 @@ sub dt2dttz
 # class function
 sub gen_class_name
 {
+    # If "class" config is set, then this is already decided. So use that.
+    if ( __PACKAGE__->has_config( "class" )) {
+        return __PACKAGE__->config( [ "class" ] );
+    }
+
     # use the name of the script to determine which AlertGizmo subclass to load
     my $progname = $PROGNAME;
     $progname =~ s/^alert-//x;  # remove alert- prefix from program name
