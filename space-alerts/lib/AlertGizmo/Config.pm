@@ -47,7 +47,7 @@ sub _class_or_obj
 
 # return ref to hash-of-hash (hoh) entry one level down by key
 # private class function
-sub _descend_hoh
+sub _descend_hoh : Result
 {
     my ( $node_ref, $key ) = @_;
 
@@ -55,9 +55,9 @@ sub _descend_hoh
         # descend into hash ref by string
         if ( exists $node_ref->{ $key } ) {
             if ( not ref $node_ref->{ $key } ) {
-                return \$node_ref->{ $key };
+                return ok( \$node_ref->{ $key } );
             }
-            return $node_ref->{ $key };
+            return ok( $node_ref->{ $key } );
         } else {
             return NotFound->err();
         }
@@ -66,9 +66,9 @@ sub _descend_hoh
         if ( _str_is_int( $key )) {
             if ( exists $node_ref->[ $key ] ) {
                 if ( not ref $node_ref->[ $key ] ) {
-                    return \$node_ref->[ $key ];
+                    return ok( \$node_ref->[ $key ] );
                 }
-                return $node_ref->[ $key ];
+                return ok( $node_ref->[ $key ] );
             } else {
                 return NotFound->err();
             }
@@ -84,7 +84,7 @@ sub _descend_hoh
 # find ref to hash-of-hash (hoh) node by a path
 # returns results ok() or err()
 # private class function
-sub _get_hoh_path
+sub _get_hoh_path : Result
 {
     my ($class, @path) = @_;
     my $instance = __PACKAGE__->instance();
@@ -106,7 +106,7 @@ sub _get_hoh_path
 
 # make sure a path exists for writing to a possibly-new node
 # private class function
-sub _mk_hoh_path
+sub _mk_hoh_path : Result
 {
     my ($class, @path) = @_;
     my $instance = __PACKAGE__->instance();
@@ -153,7 +153,7 @@ sub contains
 # configuration read accessor
 # returns result type: ok(value) if successful, err(type) if item does not exist
 # public class method
-sub read_accessor
+sub read_accessor : Result
 {
     my ( $class_or_obj, @keys ) = @_;
     my $instance = _class_or_obj($class_or_obj);
@@ -171,7 +171,7 @@ sub read_accessor
 # configuration write accessor
 # returns result type: ok() if successful, err(type) if item does not exist
 # public class method
-sub write_accessor
+sub write_accessor : Result
 {
     my ( $class_or_obj, $keys_ref, $value ) = @_;
     my $instance = _class_or_obj($class_or_obj);
@@ -183,12 +183,12 @@ sub write_accessor
     }
     my $node = $hoh_result->unwrap();
     $node->{ $last_key } = $value;
-    return $hoh_result->ok();
+    return ok();
 }
 
 # configuration read/write accessor
 # top-level class config() method calls here
-sub accessor
+sub accessor : Result
 {
     my ( $class_or_obj, $keys_ref, $value ) = @_;
     my $instance = _class_or_obj($class_or_obj);

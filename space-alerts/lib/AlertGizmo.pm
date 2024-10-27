@@ -21,6 +21,7 @@ use AlertGizmo::Config;
 use File::Basename;
 use Getopt::Long;
 use Template;
+use results;
 use Data::Dumper;
 
 # initialize class static variables
