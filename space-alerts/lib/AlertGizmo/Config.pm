@@ -147,7 +147,12 @@ sub contains
     my ( $class_or_obj, @keys ) = @_;
     my $instance = _class_or_obj($class_or_obj);
     my $hoh_result = $instance->_get_hoh_path( @keys );
-    return $hoh_result->is_ok() ? true : false;
+    if ( $hoh_result->is_err() ) {
+        $hoh_result->unwrap_err(); # touch error to satisfy results it wasn't ignored
+        return false;
+    }
+    $hoh_result->unwrap(); # touch result to satisfy results it wasn't ignored
+    return true;
 }
 
 # configuration read accessor

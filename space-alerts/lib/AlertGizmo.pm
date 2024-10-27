@@ -86,21 +86,21 @@ sub del_config
 sub options
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "options", @{ $keys_ref // [] } ], $value );
+    return $class->config( [ "options", @{ $keys_ref // [] } ], $value )->unwrap();
 }
 
 # accessor wrapper for params top-level config
 sub params
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "params", @{ $keys_ref // [] } ], $value );
+    return $class->config( [ "params", @{ $keys_ref // [] } ], $value )->unwrap();
 }
 
 # accessor wrapper for paths top-level config
 sub paths
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "paths", @{ $keys_ref // [] } ], $value );
+    return $class->config( [ "paths", @{ $keys_ref // [] } ], $value )->unwrap();
 }
 
 # accessor for test mode config
@@ -228,7 +228,7 @@ sub main_inner
     GetOptions( AlertGizmo::options(), @cli_options );
 
     # save timestamp
-    $class->params( [ qw( timestamp ) ], dt2dttz( config_timestamp() ));
+    $class->params( [ qw( timestamp ) ], dt2dttz( $class->config_timestamp() ));
 
     # subclass-specific processing for before template
     if ( $class->can( "pre_template" )) {
@@ -248,7 +248,7 @@ sub main_inner
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
-    if ( config_test_mode()) {
+    if ( $class->config_test_mode()) {
         say "test mode: params=" . Dumper( $class->params() );
         exit 0;
     }
@@ -270,7 +270,7 @@ sub main
         main_inner();
     } catch ($e) {
         # simple but a functional start until more specific exception-catching gets added
-        croak "error: $e";
+        confess "error: $e";
     }
     exit 0;
 }
