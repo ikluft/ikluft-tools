@@ -167,7 +167,7 @@ sub read_accessor : Result
         return $hoh_result;
     }
     my $value = $hoh_result->unwrap();
-    if ( ref $value eq "HASH" or ref $value eq "ARRAY" or not ref $value ) {
+    if ( ref $value eq "HASH" or ref $value eq "ARRAY" or ref $value eq "DateTime" or not ref $value ) {
         return ok($value);
     }
     return ok($$value);

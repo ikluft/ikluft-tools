@@ -176,7 +176,7 @@ sub diameter2bgcolor
 # perform NEO query and save result in named file
 sub do_neo_query
 {
-    my $class = @_;
+    my $class = shift;
 
     # perform NEO query
     if ( $class->config_test_mode() ) {
@@ -289,6 +289,14 @@ sub pre_template
 
     # compute query start date from $BACK_DAYS days ago
     my $timestamp = $class->config_timestamp();
+    if ( not $timestamp->isa( "DateTime" ) ) {
+        my $old_timestamp = $timestamp;
+        try {
+            $timestamp = DateTime::Format::Flexible->parse_datetime( $old_timestamp );
+        } catch ( $e ){
+            confess "pre_template: timestamp $old_timestamp is not a DateTime object or date string - $e";
+        };
+    }
     my $start_date = $timestamp->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
     $class->params( [ "start_date" ], $start_date );
     is_interactive() and say "start date: " . $start_date;
@@ -346,7 +354,7 @@ sub pre_template
         # closest approact in local timezone (for mouseover text)
         my $cd_dt = DateTime::Format::Flexible->parse_datetime( $item{cd} . ":00 UTC" )
             ->set_time_zone( $class->config_timezone() );
-        $item{cd_local} = dt2dttz($cd_dt);
+        $item{cd_local} = AlertGizmo::dt2dttz($cd_dt);
 
         # background color computation based on distance
         $item{bgcolor} = dist2bgcolor( $item{dist} );

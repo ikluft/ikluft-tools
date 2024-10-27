@@ -86,21 +86,21 @@ sub del_config
 sub options
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "options", @{ $keys_ref // [] } ], $value )->unwrap();
+    return $class->config( [ "options", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor wrapper for params top-level config
 sub params
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "params", @{ $keys_ref // [] } ], $value )->unwrap();
+    return $class->config( [ "params", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor wrapper for paths top-level config
 sub paths
 {
     my ( $class, $keys_ref, $value ) = @_;
-    return $class->config( [ "paths", @{ $keys_ref // [] } ], $value )->unwrap();
+    return $class->config( [ "paths", @{ $keys_ref // [] } ], $value );
 }
 
 # accessor for test mode config
@@ -126,7 +126,7 @@ sub config_timezone
         return $class->params( [ "timezone" ] );
     }
     my $tz = $class->options( [ "timezone" ] ) // "UTC"; # get TZ value from CLI options or default UTC
-    $class->params( [ "timezone" ], $tz )->unwrap(); # save to template params
+    $class->params( [ "timezone" ], $tz ); # save to template params
     return $tz; # and return value to caller
 }
 
@@ -138,9 +138,9 @@ sub config_timestamp
     if ( $class->has_config( qw(params timestamp) )) {
         return $class->params( [ "timestamp" ] );
     }
-    my $timestamp_str = DateTime->now( time_zone => $class->config_timezone() );
-    $class->params( [ "timezone" ], $timestamp_str );
-    return $timestamp_str;
+    my $timestamp_obj = DateTime->now( time_zone => "" . $class->config_timezone() );
+    $class->params( [ "timestamp" ], $timestamp_obj );
+    return $timestamp_obj;
 }
 
 # accessor for output directory config
@@ -158,10 +158,7 @@ sub config_dir
     } else {
         $dir = $DEFAULT_OUTPUT_DIR;
     }
-    my $result = $class->params( [ "output_dir" ], $dir );
-    if ( not $result->ok()) {
-        croak "failed to save output_dir param ($dir)";
-    }
+    $class->params( [ "output_dir" ], $dir );
     return $dir;
 }
 
@@ -225,7 +222,7 @@ sub main_inner
     if ( $class->can( "cli_options" )) {
             push @cli_options, $class->cli_options();
     }
-    GetOptions( AlertGizmo::options(), @cli_options );
+    GetOptions( AlertGizmo->options(), @cli_options );
 
     # save timestamp
     $class->params( [ qw( timestamp ) ], dt2dttz( $class->config_timestamp() ));
@@ -270,7 +267,7 @@ sub main
         main_inner();
     } catch ($e) {
         # simple but a functional start until more specific exception-catching gets added
-        confess "error: $e";
+        croak "error: $e";
     }
     exit 0;
 }
