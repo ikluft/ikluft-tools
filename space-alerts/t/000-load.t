@@ -9,6 +9,7 @@ use Try::Tiny;
 my @modules = qw(
     AlertGizmo
     AlertGizmo::Config
+    AlertGizmo::Neo
 );
 
 # count tests
