@@ -17,6 +17,7 @@ use feature      qw(say try);
 use builtin      qw(true false);
 use Readonly;
 use Carp qw(croak confess);
+use FindBin;
 use AlertGizmo::Config;
 use File::Basename;
 use Getopt::Long;
