@@ -18,7 +18,11 @@ use feature      qw(say try);
 use builtin      qw(true false);
 use Carp         qw(confess);
 use results;
-use results::exceptions qw( NotFound NonIntegerIndex InvalidNodeType NoAutoArray );
+use results::exceptions (
+        'NotFound' => { has => [ 'name' ] },
+        'NonIntegerIndex' => { has => [ 'str' ] },
+        qw( InvalidNodeType NoAutoArray )
+    );
 
 # helper function to allow methods to get the singleton instance whether called as a class or instance method
 # private class function
@@ -59,7 +63,7 @@ sub _descend_hoh : Result
             }
             return ok( $node_ref->{ $key } );
         } else {
-            return NotFound->err();
+            return NotFound->err( $key );
         }
     } elsif ( ref $node_ref eq "ARRAY" ) {
         # descend into array ref by int
@@ -70,10 +74,10 @@ sub _descend_hoh : Result
                 }
                 return ok( $node_ref->[ $key ] );
             } else {
-                return NotFound->err();
+                return NotFound->err( $key );
             }
         } else {
-            return NonIntegerIndex->err();
+            return NonIntegerIndex->err( $key );
         }
     }
 
