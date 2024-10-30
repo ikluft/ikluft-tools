@@ -17,6 +17,7 @@ use feature      qw(say try);
 use builtin      qw(true false);
 use Readonly;
 use Carp qw(croak confess);
+use Scalar::Util qw( blessed );
 use FindBin;
 use AlertGizmo::Config;
 use File::Basename;
@@ -64,8 +65,12 @@ sub config
             # process not found error into undef result as common Perl code expects
             return;
         }
+        my $err = $result->unwrap_err();
+        confess( $err );
     }
-    return $result->unwrap(); # returns on success, fatal error if any other than not found
+
+    # returns on success
+    return $result->unwrap();
 }
 
 # wrapper for AlertGizmo::Config existence-test method
@@ -267,6 +272,15 @@ sub main
         main_inner();
     } catch ($e) {
         # simple but a functional start until more specific exception-catching gets added
+        if ( blessed $e and $e->can( "rethrow" ) ) {
+            if ( $_->isa('Exception::Class') ) {
+                croak $_->error, "\n", $_->trace->as_string, "\n";
+            }
+            $e->rethrow();
+        }
+        if ( ref $e ) {
+            croak "error (" . ( ref $e ) . "): $e";
+        }
         croak "error: $e";
     }
     exit 0;
