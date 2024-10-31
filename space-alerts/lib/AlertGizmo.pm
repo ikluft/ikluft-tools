@@ -61,7 +61,7 @@ sub config
     my ( $class, $keys_ref, $value ) = @_;
     my $result = AlertGizmo::Config->accessor( $keys_ref, $value );
     if ( $result->is_err() ) {
-        if ( $result->isa( AlertGizmo::Config::NotFound )) {
+        if ( $result->isa( 'AlertGizmo::Config::Exception::NotFound' )) {
             # process not found error into undef result as common Perl code expects
             return;
         }
@@ -272,13 +272,17 @@ sub main
         main_inner();
     } catch ($e) {
         # simple but a functional start until more specific exception-catching gets added
-        if ( blessed $e and $e->can( "rethrow" ) ) {
-            if ( $_->isa('Exception::Class') ) {
-                croak $_->error, "\n", $_->trace->as_string, "\n";
+        if ( blessed $e ) {
+            if ( $e->isa( 'AlertGizmo::Config::Exception::NotFound' ) ) {
+                say "error: NotFound (name => " . $e->{name} . ")";
+                exit 1;
             }
-            $e->rethrow();
-        }
-        if ( ref $e ) {
+            if ( $e->can( "rethrow" ) ) {
+                if ( $e->isa('Exception::Class') ) {
+                    croak $_->error, "\n", $_->trace->as_string, "\n";
+                }
+                $e->rethrow();
+            }
             croak "error (" . ( ref $e ) . "): $e";
         }
         croak "error: $e";

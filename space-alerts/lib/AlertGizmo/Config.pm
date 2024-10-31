@@ -63,7 +63,7 @@ sub _descend_hoh : Result
             }
             return ok( $node_ref->{ $key } );
         } else {
-            return NotFound->err( $key );
+            return NotFound->err( name => $key );
         }
     } elsif ( ref $node_ref eq "ARRAY" ) {
         # descend into array ref by int
@@ -74,10 +74,10 @@ sub _descend_hoh : Result
                 }
                 return ok( $node_ref->[ $key ] );
             } else {
-                return NotFound->err( $key );
+                return NotFound->err( name => $key );
             }
         } else {
-            return NonIntegerIndex->err( $key );
+            return NonIntegerIndex->err( str => $key );
         }
     }
 
@@ -125,7 +125,7 @@ sub _mk_hoh_path : Result
         } else {
             # for NotFound errors, create missing nodes if possible
             my $node_err = $node_result->unwrap_err();
-            if ( $node_err->isa( NotFound )) {
+            if ( $node_err->isa( 'AlertGizmo::Config::Exception::NotFound' )) {
                 if ( _str_is_int( $path[$index] )) {
                     return NoAutoArray->err();
                 }
