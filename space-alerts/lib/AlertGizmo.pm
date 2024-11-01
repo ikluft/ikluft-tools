@@ -277,6 +277,10 @@ sub main
                 say "error: NotFound (name => " . $e->{name} . ")";
                 exit 1;
             }
+            if ( $e->isa( 'AlertGizmo::Config::Exception::NonIntegerIndex' ) ) {
+                say "error: NonIntegerIndex (str => " . $e->{str} . ")";
+                exit 1;
+            }
             if ( $e->can( "rethrow" ) ) {
                 if ( $e->isa('Exception::Class') ) {
                     croak $_->error, "\n", $_->trace->as_string, "\n";
