@@ -143,6 +143,19 @@ sub _mk_hoh_path : Result
     return ok( $node_ref );
 }
 
+# get/set verbose flag
+# class method
+sub verbose
+{
+    my ( $class_or_obj, $value ) = @_;
+    my $instance = _class_or_obj($class_or_obj);
+    if ( defined $value ) {
+        $instance->{verbose} = $value ? true : false;
+        return;
+    }
+    return $instance->{verbose};
+}
+
 # check for existence of a config entry
 # returns boolean: true if successful, false if item does not exist
 # public class method
@@ -152,6 +165,7 @@ sub contains
     my $instance = _class_or_obj($class_or_obj);
     my $hoh_result = $instance->_get_hoh_path( @keys );
     if ( $hoh_result->is_err() ) {
+        __PACKAGE__->verbose() and say STDERR "contains( " . join( " ", @keys ) . " ) -> not found";
         $hoh_result->unwrap_err(); # touch error to satisfy results it wasn't ignored
         return false;
     }
@@ -168,6 +182,7 @@ sub read_accessor : Result
     my $instance = _class_or_obj($class_or_obj);
     my $hoh_result = $instance->_get_hoh_path( @keys );
     if ( $hoh_result->is_err()) {
+        __PACKAGE__->verbose() and say STDERR "read_accessor( "  . join( " ", @keys ) . " ) -> " . $hoh_result;
         return $hoh_result;
     }
     my $value = $hoh_result->unwrap();
