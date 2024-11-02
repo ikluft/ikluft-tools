@@ -381,11 +381,11 @@ sub post_template
 
     # make a symlink to new data
     if ( -l $class->paths( [ "outlink" ] ) ) {
-        unlink $class->pathssubclass_init
+        unlink $class->paths( [ "outlink" ] );
     }
     symlink basename( $class->paths( [ "outjson" ] ) ), $class->paths( [ "outlink" ] )
         or croak "failed to symlink " . $class->paths( [ "outlink" ] ) . " to "
-            . $class->paths( [ "outjson" ] ) . "; $!";
+            . $class->paths( [ "outjson" ] ) . ": $!";
 
     # clean up old data files
     opendir( my $dh, $class->config_dir() )
