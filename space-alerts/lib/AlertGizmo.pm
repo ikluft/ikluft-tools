@@ -33,7 +33,7 @@ AlertGizmo::Config->accessor( [ "paths" ], {} );
 
 # constants
 Readonly::Scalar our $PROGNAME  => basename( $0 );
-Readonly::Array  our @CLI_OPTIONS => ( "dir:s", "test|test_mode", "proxy:s", "timezone|tz:s" );
+Readonly::Array  our @CLI_OPTIONS => ( "dir:s", "verbose", "test|test_mode", "proxy:s", "timezone|tz:s" );
 Readonly::Scalar our $DEFAULT_OUTPUT_DIR    => $FindBin::Bin;
 
 # return AlertGizmo (or subclass) version number
@@ -60,12 +60,14 @@ sub config
 {
     my ( $class, $keys_ref, $value ) = @_;
     my $result = AlertGizmo::Config->accessor( $keys_ref, $value );
+    AlertGizmo::Config->verbose() and say STDERR "config: result type " . ref( $result );
     if ( $result->is_err() ) {
-        if ( $result->isa( 'AlertGizmo::Config::Exception::NotFound' )) {
+        my $err = $result->unwrap_err();
+        AlertGizmo::Config->verbose() and say STDERR "config: result err " . ref( $err );
+        if ( $err->isa( 'AlertGizmo::Config::Exception::NotFound' )) {
             # process not found error into undef result as common Perl code expects
             return;
         }
-        my $err = $result->unwrap_err();
         confess( $err );
     }
 
