@@ -1,6 +1,6 @@
 # AlertGizmo
 # ABSTRACT: base class for AlertGizmo feed monitors
-# Copyright (c) 2024 by Ian Kluft
+# Copyright 2024 by Ian Kluft
 
 # pragmas to silence some warnings from Perl::Critic
 ## no critic (Modules::RequireExplicitPackage)
@@ -143,7 +143,21 @@ sub config_timestamp
     my $class = shift;
 
     if ( $class->has_config( qw(params timestamp) )) {
-        return $class->params( [ "timestamp" ] );
+        my $timestamp = $class->params( [ "timestamp" ] );
+
+        # check if value placed in timestamp is a DateTime object, or replace date strings with DateTime
+        if ( not $timestamp->isa( "DateTime" ) ) {
+            my $old_timestamp = $timestamp;
+            try {
+                $timestamp = DateTime::Format::Flexible->parse_datetime( $old_timestamp );
+            } catch ( $e ){
+                confess "config_timestamp: timestamp $old_timestamp is not a DateTime object or date string - $e";
+            };
+
+            # overwrite timestamp param with DateTime object
+            $class->params( [ "timestamp" ], $timestamp );
+        }
+        return $timestamp;
     }
     my $timestamp_obj = DateTime->now( time_zone => "" . $class->config_timezone() );
     $class->params( [ "timestamp" ], $timestamp_obj );

@@ -1,6 +1,6 @@
 # AlertGizmo::Neo
 # ABSTRACT: AlertGizmo monitor for NASA JPL Near-Earth Object (NEO) close approach data
-# Copyright (c) 2024 by Ian Kluft
+# Copyright 2024 by Ian Kluft
 
 # pragmas to silence some warnings from Perl::Critic
 ## no critic (Modules::RequireExplicitPackage)
@@ -289,14 +289,6 @@ sub pre_template
 
     # compute query start date from $BACK_DAYS days ago
     my $timestamp = $class->config_timestamp();
-    if ( not $timestamp->isa( "DateTime" ) ) {
-        my $old_timestamp = $timestamp;
-        try {
-            $timestamp = DateTime::Format::Flexible->parse_datetime( $old_timestamp );
-        } catch ( $e ){
-            confess "pre_template: timestamp $old_timestamp is not a DateTime object or date string - $e";
-        };
-    }
     my $start_date = $timestamp->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
     $class->params( [ "start_date" ], $start_date );
     is_interactive() and say "start date: " . $start_date;
@@ -375,6 +367,7 @@ sub pre_template
     return;
 }
 
+# class method AlertGizmo (parent) called after template processing
 sub post_template
 {
     my $class = shift;
