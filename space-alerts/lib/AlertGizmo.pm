@@ -188,6 +188,9 @@ sub set_class
 {
     my $class = shift;
 
+    if ( $class eq __PACKAGE__ ) {
+        croak "error: set_class must be called by a subclass of ".__PACKAGE__;
+    }
     if ( not $class->isa( __PACKAGE__ )) {
         croak "error: $class is not a subclass of ".__PACKAGE__;
     }
