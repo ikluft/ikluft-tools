@@ -9,11 +9,10 @@ use warnings;
 use utf8;
 use autodie;
 use Modern::Perl qw(2023);          # built-in boolean types require 5.36, try/catch requires 5.34
-use Carp qw(croak confess);
 use AlertGizmo;
 use AlertGizmo::Neo;
 
-# set implementation subclass to AlertGizmo::Neo
+# set implementation subclass to AlertGizmo::Neo, then run AlertGizmo's main()
 AlertGizmo::Neo->set_class();
 AlertGizmo->main();
 
