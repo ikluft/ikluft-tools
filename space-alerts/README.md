@@ -1,13 +1,14 @@
 This directory contains scripts I've written which monitor space-related alerts online. These can be run manually or from crontabs. (see example below)
 
-- *[pull-nasa-neo.pl](bin/pull-nasa-neo.pl)* reads NASA JPL data on Near Earth Object (NEO) asteroid close approaches to Earth, within 2 lunar distances (LD) and makes a table of upcoming events and recent ones within 15 days.
-  - language: Perl5🧅
-  - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
-  - example template text: [close-approaches.tt](close-approaches.tt)
-- *[pull-swpc-alerts.pl](bin/pull-swpc-alerts.pl)* reads NOAA Space Weather Prediction Center (SWPC) alerts for solar flares and aurora
-  - language: Perl5🧅
-  - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
-  - example template text: [noaa-swpc-alerts.tt](noaa-swpc-alerts.tt)
+- bin (script directory)
+  - *[pull-nasa-neo.pl](bin/pull-nasa-neo.pl)* reads NASA JPL data on Near Earth Object (NEO) asteroid close approaches to Earth, within 2 lunar distances (LD) and makes a table of upcoming events and recent ones within 15 days.
+     - language: Perl5🧅
+     - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
+     - example template text: [close-approaches.tt](close-approaches.tt)
+  - *[pull-swpc-alerts.pl](bin/pull-swpc-alerts.pl)* reads NOAA Space Weather Prediction Center (SWPC) alerts for solar flares and aurora
+     - language: Perl5🧅
+     - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
+     - example template text: [noaa-swpc-alerts.tt](noaa-swpc-alerts.tt)
 
 To run these scripts from a crontab, first use 'crontab -l' to determine if you have one set up, and that the crontab command is installed. (If it isn't installed, Linux packages such as [cronie](https://github.com/cronie-crond/cronie) can perform [modern cron](https://en.wikipedia.org/wiki/Cron#Modern_versions) functions. If on a small embedded Linux system, [BusyBox](https://en.wikipedia.org/wiki/BusyBox) or [Toybox](https://en.wikipedia.org/wiki/Toybox) also provide a crontab command.)
 
