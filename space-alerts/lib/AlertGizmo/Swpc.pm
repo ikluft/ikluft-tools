@@ -73,7 +73,7 @@ sub test_dump
 
     # in verbose mode, dump the params hash
     if (AlertGizmo::Config->verbose()) {
-        say STDERR Dumper($params);
+        say STDERR Dumper($class->params());
     }
 
     # in test mode, exit before messing with symlink or removing old files
