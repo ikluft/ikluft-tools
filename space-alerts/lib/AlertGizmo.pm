@@ -236,6 +236,21 @@ sub gen_class_name
     return $subclassname;
 }
 
+# in test mode, dump program status for debugging
+# This may be overridden by subclasses to display more specific dump info.
+# In test mode it must exit after displaying the dump, as this does, and not proceed to network access.
+sub test_dump
+{
+    my $class = shift;
+
+    # in test mode, exit before messing with symlink or removing old files
+    if ( $class->config_test_mode()) {
+        say "test mode: params=" . Dumper( $class->params() );
+        exit 0;
+    }
+    return;
+}
+
 # inner mainline called from main() exception-catching wrapper
 sub main_inner
 {
@@ -269,10 +284,7 @@ sub main_inner
         or croak "template processing error: " . $template->error();
 
     # in test mode, exit before messing with symlink or removing old files
-    if ( $class->config_test_mode()) {
-        say "test mode: params=" . Dumper( $class->params() );
-        exit 0;
-    }
+    $class->test_dump();
 
     # subclass-specific processing for after template
     if ( $class->can( "post_template" )) {
