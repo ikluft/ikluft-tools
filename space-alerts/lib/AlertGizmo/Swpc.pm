@@ -94,6 +94,57 @@ sub test_dump
     return;
 }
 
+# perform SWPC request and save result in named file
+sub do_swpc_request
+{
+    my $class = shift;
+    my $paths = $class->paths();
+
+    # perform SWPC request
+    if ( $class->config_test_mode() ) {
+        if ( not -e $paths->{outlink} ) {
+            croak "test mode requires $paths->{outlink} to exist";
+        }
+        say STDERR "*** skip network access in test mode ***";
+    } else {
+        my $url = $SWPC_JSON_URL;
+        my $proxy = $class->config_proxy();
+        my ( $outstr, $errstr );
+        my @cmd = (
+            "/usr/bin/curl", "--silent", ( defined $proxy ? ( "--proxy", $proxy ) : () ),
+            "--output", $paths->{outjson}, $url
+        );
+        IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
+
+        # check results of request
+        if ( $? == -1 ) {
+            confess "failed to execute command (" . join( " ", @cmd ) . "): $!";
+        }
+        my $retcode = $? >> 8;
+        if ( $? & 127 ) {
+            confess sprintf "command ("
+                . join( " ", @cmd )
+                . " child died with signal %d, %s coredump\n",
+                ( $? & 127 ), ( $? & 128 ) ? 'with' : 'without';
+        }
+        if ( $retcode != 0 ) {
+            confess sprintf "command (" . join( " ", @cmd ) . " exited with code $retcode";
+        }
+        if ( -z $paths->{outjson} ) {
+            croak "JSON data file " . $paths->{outjson} . " is empty";
+        }
+        if ($errstr) {
+            say STDERR "stderr from command: $errstr";
+            $class->params( [ "curl_stderr" ], $errstr );
+        }
+        if ($outstr) {
+            say STDERR "stdout from command: $outstr";
+            $class->params( [ "curl_stdout" ], $outstr );
+        }
+    }
+    return;
+}
+
 # class method AlertGizmo (parent) calls before template processing
 sub pre_template
 {
