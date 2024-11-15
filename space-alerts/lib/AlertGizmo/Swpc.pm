@@ -22,6 +22,10 @@ use Readonly;
 use Carp qw(croak confess);
 use Data::Dumper;
 use FindBin;
+use DateTime;
+use DateTime::Duration;
+use DateTime::Format::ISO8601;
+use IPC::Run;
 use Set::Tiny;
 use File::Slurp;
 use JSON;
@@ -144,6 +148,66 @@ sub do_swpc_request
     }
     return;
 }
+# process alert data - extract message header information
+sub process_alerts
+{
+    my $class = shift;
+    my $params = $class->params();
+
+    # convert response JSON data to template-able result
+    foreach my $raw_item ( @{ $params->{json} } ) {
+
+        # start SWPC alert record
+        my %item;
+        foreach my $key ( keys %$raw_item ) {
+            $item{$key} = $raw_item->{$key};
+        }
+
+        # decode message text info further data fields - we can use msg_data after this point
+        $class->parse_message( \%item );
+
+        # save alert indexed by msgid
+        my $msgid = $class->get_msgid( \%item );
+        $item{derived}            = {};
+        $item{derived}{id}        = $msgid;
+        $params->{alerts}{$msgid} = \%item;
+
+        # set initial status as none
+        $item{derived}{status} = $S_NONE;
+
+        # find and save title
+        foreach my $title_key (@TITLE_KEYS) {
+            if ( exists $item{msg_data}{$title_key} ) {
+                $item{derived}{title} = $item{msg_data}{$title_key};
+                last;
+            }
+        }
+        $item{derived}{serial} = $item{msg_data}{$SERIAL_HEADER};
+
+        # reformat and save issue time
+        $item{derived}{issue} =
+            DateTime::Format::ISO8601->format_datetime( $class->issue2dt( $item{issue_datetime} ) );
+
+        # set row color based on NOAA scales
+        $item{derived}{level} =
+            0;    # default setting for no known NOAA alert level (will be colored gray)
+        if ( ( exists $item{msg_data}{'NOAA Scale'} )
+            and $item{msg_data}{'NOAA Scale'} =~ /^ [GMR] ([0-9]) \s/x )
+        {
+            $item{derived}{level} = int($1);
+        } elsif ( ( exists $item{derived}{title} )
+            and $item{derived}{title} =~ /Category \s [GMR] ([0-9]) \s/x )
+        {
+            $item{derived}{level} = int($1);
+        }
+        $item{derived}{bgcolor} = $LEVEL_COLORS[ $item{derived}{level} ];
+
+        # save alert status - active, inactive, canceled, superseded
+        $class->save_alert_status( \%item );
+    }
+
+    return;
+}
 
 # class method AlertGizmo (parent) calls before template processing
 sub pre_template
@@ -168,7 +232,7 @@ sub pre_template
     $class->paths( [ "outjson" ], $outjson );
 
     # perform SWPC request
-    do_swpc_request();
+    $class->do_swpc_request();
 
     # read JSON into template data
     # in case of JSON error, allow these to crash the program here before proceeding to symlinks
@@ -177,7 +241,7 @@ sub pre_template
     $class->params( [ "json" ], JSON::from_json $json_text );
 
     # convert response JSON data to template-able result
-    process_alerts();
+    $class->process_alerts();
 
     return;
 }
