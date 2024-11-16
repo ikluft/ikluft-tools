@@ -148,6 +148,107 @@ sub do_swpc_request
     }
     return;
 }
+
+# save alert status - active, inactive, canceled, superseded
+sub save_alert_status
+{
+    my ($class, $item_ref) = @_;
+    my $params     = $class->params();
+    my $msgid      = $item_ref->{derived}{id};
+    my $serial     = $item_ref->{msg_data}{$SERIAL_HEADER};
+    my $timestamp  = $class->config_timestamp();
+
+    # check if serial number is marked as canceled or superseded
+    if ( $params->{cancel}->contains($serial) ) {
+        alert_set_cancel($msgid);
+        return;
+    }
+    if ( $params->{supersede}->contains($serial) ) {
+        alert_set_supersede($msgid);
+        return;
+    }
+
+    # process cancellation of another serial number
+    if ( exists $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER} ) {
+        serial_cancel( $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER} );
+        alert_set_inactive($msgid);
+        return;
+    }
+
+    # process extension/superseding of another serial number
+    if ( exists $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER} ) {
+        serial_supersede( $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER} );
+    }
+
+    # set begin and expiration times based on various headers to that effect
+    foreach my $begin_hdr (@BEGIN_HEADERS) {
+        if ( exists $item_ref->{msg_data}{$begin_hdr} ) {
+            my $begin_dt = datestr2dt( $item_ref->{msg_data}{$begin_hdr} );
+            $item_ref->{derived}{begin} = DateTime::Format::ISO8601->format_datetime($begin_dt);
+            last;
+        }
+    }
+    foreach my $end_hdr (@END_HEADERS) {
+        if ( exists $item_ref->{msg_data}{$end_hdr} ) {
+            my $end_dt = datestr2dt( $item_ref->{msg_data}{$end_hdr} );
+            $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($end_dt);
+            last;
+        }
+    }
+
+    # set times for instantaneous events
+    foreach my $instant_hdr (@INSTANTANEOUS_HEADERS) {
+        if ( exists $item_ref->{msg_data}{$instant_hdr} ) {
+            my $tr_dt = datestr2dt( $item_ref->{msg_data}{$instant_hdr} );
+            $item_ref->{derived}{end}   = DateTime::Format::ISO8601->format_datetime($tr_dt);
+            $item_ref->{derived}{begin} = $item_ref->{derived}{end};
+            last;
+        }
+    }
+
+    # if end time was set but no begin, use issue time
+    if ( ( not exists $item_ref->{derived}{begin} ) and ( exists $item_ref->{derived}{end} ) ) {
+        $item_ref->{derived}{begin} =
+            DateTime::Format::ISO8601->format_datetime( issue2dt( $item_ref->{issue_datetime} ) );
+    }
+
+    # if begin time was set but no end, copy begin time to end time
+    if ( ( exists $item_ref->{derived}{begin} ) and ( not exists $item_ref->{derived}{end} ) ) {
+        $item_ref->{derived}{end} = $item_ref->{derived}{begin};
+    }
+
+    # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
+    date_from_level_forecast($item_ref);
+
+    # set status as inactive if outside begin and end times
+    if ( exists $item_ref->{derived}{begin} ) {
+        my $begin_dt = DateTime::Format::ISO8601->parse_datetime( $item_ref->{derived}{begin} );
+        if ( $timestamp < $begin_dt ) {
+
+            # begin time has not yet been reached
+            alert_set_inactive($msgid);
+        }
+    }
+    if ( exists $item_ref->{derived}{end} ) {
+        my $end_dt = DateTime::Format::ISO8601->parse_datetime( $item_ref->{derived}{end} ) +
+            DateTime::Duration->new( hours => $RETAIN_TIME );
+        if ( $timestamp > $end_dt ) {
+
+            # expiration time has been reached
+            alert_set_inactive($msgid);
+        }
+    }
+
+    # activate the alert if it is not expired, canceled or superseded
+    if ( alert_is_none($msgid) ) {
+        alert_set_active($msgid);
+    }
+
+    # save sorted list of active alerts
+    save_active_alerts();
+    return;
+}
+
 # process alert data - extract message header information
 sub process_alerts
 {
