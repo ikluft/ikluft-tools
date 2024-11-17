@@ -149,6 +149,46 @@ sub do_swpc_request
     return;
 }
 
+# if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
+sub date_from_level_forecast
+{
+    my ($class, $item_ref) = @_;
+    if ( exists $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER} ) {
+        my $forecast_line = $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER};
+        my @matches =
+            ( $forecast_line =~ /([A-Z][a-z][a-z] \s+ [0-9]+ : \s+ [^\s]+ \s+ \([^\)]+\))/gx );
+        my $last_date;
+        foreach my $by_day (@matches) {
+            if ( $by_day =~ /([A-Z][a-z][a-z]) \s+ ([0-9]+) : \s+ ([^\s]+) \s+ \([^\)]+\)/x ) {
+                my $mon = int( $MONTH_NUM{ lc $1 } ) // "";
+                my $day = int($2);
+                my $mag = $3;
+                if ( $mag ne "None" and $mon ) {
+                    $last_date = [ $mon, $day ];
+                }
+            }
+        }
+        if ( defined $last_date ) {
+            my $issue_dt    = issue2dt( $item_ref->{issue_datetime} );
+            my $issue_year  = $issue_dt->year();
+            my $issue_month = $issue_dt->month();
+            my $expire_year =
+                $issue_year + ( ( $issue_month == 12 and $last_date->[0] == 1 ) ? 1 : 0 );
+            my $expire_dt = DateTime->new(
+                year      => $expire_year,
+                month     => $last_date->[0],
+                day       => $last_date->[1],
+                hour      => 23,
+                minute    => 59,
+                time_zone => "UTC",
+            );
+            $expire_dt->set_time_zone( $class->config_timezone() );
+            $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($expire_dt);
+        }
+    }
+    return;
+}
+
 # save alert status - active, inactive, canceled, superseded
 sub save_alert_status
 {
@@ -218,7 +258,7 @@ sub save_alert_status
     }
 
     # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
-    date_from_level_forecast($item_ref);
+    $class->date_from_level_forecast($item_ref);
 
     # set status as inactive if outside begin and end times
     if ( exists $item_ref->{derived}{begin} ) {
