@@ -70,34 +70,6 @@ Readonly::Array my @TITLE_KEYS => ( "SUMMARY", "ALERT", "WATCH", "WARNING", "EXT
 Readonly::Array my @LEVEL_COLORS =>
     ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" );    # NOAA scales
 
-# in test mode, dump program status for debugging
-sub test_dump
-{
-    my $class = shift;
-
-    # in verbose mode, dump the params hash
-    if (AlertGizmo::Config->verbose()) {
-        say STDERR Dumper($class->params());
-    }
-
-    # in test mode, exit before messing with symlink or removing old files
-    if ( $class->config_test_mode()) {
-        my $params = $class->params();
-        say 'test mode';
-        say '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
-        say '* active ' . join( " ", @{ $params->{active} } );
-        say '* cancel: ' . join( " ", sort $params->{cancel}->elements() );
-        say '* supersede: ' . join( " ", sort $params->{supersede}->elements() );
-
-        # display active alerts
-        foreach my $alert_serial ( @{ $params->{active} } ) {
-            say "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
-        }
-        exit 0;
-    }
-    return;
-}
-
 # perform SWPC request and save result in named file
 sub do_swpc_request
 {
@@ -145,6 +117,34 @@ sub do_swpc_request
             say STDERR "stdout from command: $outstr";
             $class->params( [ "curl_stdout" ], $outstr );
         }
+    }
+    return;
+}
+
+# in test mode, dump program status for debugging
+sub test_dump
+{
+    my $class = shift;
+
+    # in verbose mode, dump the params hash
+    if (AlertGizmo::Config->verbose()) {
+        say STDERR Dumper($class->params());
+    }
+
+    # in test mode, exit before messing with symlink or removing old files
+    if ( $class->config_test_mode()) {
+        my $params = $class->params();
+        say 'test mode';
+        say '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
+        say '* active ' . join( " ", @{ $params->{active} } );
+        say '* cancel: ' . join( " ", sort $params->{cancel}->elements() );
+        say '* supersede: ' . join( " ", sort $params->{supersede}->elements() );
+
+        # display active alerts
+        foreach my $alert_serial ( @{ $params->{active} } ) {
+            say "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
+        }
+        exit 0;
     }
     return;
 }
