@@ -200,24 +200,24 @@ sub save_alert_status
 
     # check if serial number is marked as canceled or superseded
     if ( $params->{cancel}->contains($serial) ) {
-        alert_set_cancel($msgid);
+        $class->alert_set_cancel($msgid);
         return;
     }
     if ( $params->{supersede}->contains($serial) ) {
-        alert_set_supersede($msgid);
+        $class->alert_set_supersede($msgid);
         return;
     }
 
     # process cancellation of another serial number
     if ( exists $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER} ) {
-        serial_cancel( $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER} );
-        alert_set_inactive($msgid);
+        $class->serial_cancel( $item_ref->{msg_data}{$CANCEL_SERIAL_HEADER} );
+        $class->alert_set_inactive($msgid);
         return;
     }
 
     # process extension/superseding of another serial number
     if ( exists $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER} ) {
-        serial_supersede( $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER} );
+        $class->serial_supersede( $item_ref->{msg_data}{$EXTEND_SERIAL_HEADER} );
     }
 
     # set begin and expiration times based on various headers to that effect
@@ -266,7 +266,7 @@ sub save_alert_status
         if ( $timestamp < $begin_dt ) {
 
             # begin time has not yet been reached
-            alert_set_inactive($msgid);
+            $class->alert_set_inactive($msgid);
         }
     }
     if ( exists $item_ref->{derived}{end} ) {
@@ -275,17 +275,17 @@ sub save_alert_status
         if ( $timestamp > $end_dt ) {
 
             # expiration time has been reached
-            alert_set_inactive($msgid);
+            $class->alert_set_inactive($msgid);
         }
     }
 
     # activate the alert if it is not expired, canceled or superseded
     if ( alert_is_none($msgid) ) {
-        alert_set_active($msgid);
+        $class->alert_set_active($msgid);
     }
 
     # save sorted list of active alerts
-    save_active_alerts();
+    $class->save_active_alerts();
     return;
 }
 
