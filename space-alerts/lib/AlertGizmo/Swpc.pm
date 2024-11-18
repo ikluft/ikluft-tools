@@ -121,6 +121,32 @@ sub do_swpc_request
     return;
 }
 
+# TODO
+
+# query status of an alert
+sub alert_is
+{
+    my ( $class, $msgid, $state_str ) = @_;
+    my $params = $class->params();
+    my $alert  = $params->{alerts}{$msgid};
+    return $alert->{derived}{status} eq $state_str;
+}
+sub alert_is_none      { my $msgid = shift; return alert_is( $msgid, $S_NONE ); }
+sub alert_is_active    { my $msgid = shift; return alert_is( $msgid, $S_ACTIVE ); }
+sub alert_is_inactive  { my $msgid = shift; return alert_is( $msgid, $S_INACTIVE ); }
+sub alert_is_cancel    { my $msgid = shift; return alert_is( $msgid, $S_CANCEL ); }
+sub alert_is_supersede { my $msgid = shift; return alert_is( $msgid, $S_SUPERSEDE ); }
+
+# save list of active alert msgid's
+sub save_active_alerts
+{
+    my $class  = shift;
+    my $params = $class->params();
+
+    $params->{active} = [ sort grep { alert_is_active($_) } keys %{ $params->{alerts} } ];
+    return;
+}
+
 # in test mode, dump program status for debugging
 sub test_dump
 {
