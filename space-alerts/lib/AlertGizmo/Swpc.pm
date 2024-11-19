@@ -123,6 +123,87 @@ sub do_swpc_request
 
 # TODO
 
+# set status of an alert
+sub alert_set
+{
+    my ( $class, $msgid, $state_str ) = @_;
+    my $params = $class->params();
+    if ( not exists $params->{alerts}{$msgid} ) {
+        croak "attempt to set as $state_str a non-existent alert: $msgid";
+    }
+    my $alert  = $params->{alerts}{$msgid};
+    my $serial = $alert->{msg_data}{$SERIAL_HEADER};
+
+    # skip if serial number is marked as canceled or superseded
+    if ( $params->{cancel}->contains($serial) ) {
+        $alert->{derived}{status} = $S_CANCEL;
+        return;
+    }
+    if ( $params->{supersede}->contains($serial) ) {
+        $alert->{derived}{status} = $S_SUPERSEDE;
+        return;
+    }
+
+    # set alert state
+    $alert->{derived}{status} = $state_str;
+    return;
+
+}
+
+# set an alert as active
+sub alert_set_active
+{
+    my ( $class, $msgid ) = @_;
+    $class->alert_set( $msgid, $S_ACTIVE );
+    return;
+}
+
+# set an alert as inactive
+sub alert_set_inactive
+{
+    my ( $class, $msgid ) = @_;
+    $class->alert_set( $msgid, $S_INACTIVE );
+    return;
+}
+
+# set an alert as canceled
+sub alert_set_cancel
+{
+    my ( $class, $msgid ) = @_;
+    $class->alert_set( $msgid, $S_CANCEL );
+    return;
+}
+
+# set an alert as superseded
+sub alert_set_supersede
+{
+    my ( $class, $msgid ) = @_;
+    $class->alert_set( $msgid, $S_SUPERSEDE );
+    return;
+}
+
+# set a serial number as canceled, which may be set before the alert is read
+sub serial_cancel
+{
+    my ( $class, $serial ) = @_;
+    my $params = $class->params();
+
+    # add msgid to cancel set
+    $params->{cancel}->insert($serial);
+    return;
+}
+
+# set a serial number as superseded, which may be set before the alert is read
+sub serial_supersede
+{
+    my ( $class, $serial ) = @_;
+    my $params = $class->params();
+
+    # add msgid to supersede set
+    $params->{supersede}->insert($serial);
+    return;
+}
+
 # query status of an alert
 sub alert_is
 {
