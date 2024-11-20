@@ -20,7 +20,6 @@ use builtin      qw(true false);
 use charnames qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
-use Data::Dumper;
 use FindBin;
 use DateTime;
 use DateTime::Duration;
@@ -28,7 +27,9 @@ use DateTime::Format::ISO8601;
 use IPC::Run;
 use Set::Tiny;
 use File::Slurp;
+use IO::Interactive qw(is_interactive);
 use JSON;
+use Data::Dumper;
 
 # constants
 Readonly::Scalar my $SWPC_JSON_URL => "https://services.swpc.noaa.gov/products/alerts.json";
@@ -69,6 +70,54 @@ Readonly::Scalar my $RETAIN_TIME          => 12;    # hours to keep items after 
 Readonly::Array my @TITLE_KEYS => ( "SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING" );
 Readonly::Array my @LEVEL_COLORS =>
     ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" );    # NOAA scales
+
+# convert date string to DateTime object
+sub datestr2dt
+{
+    my ( $class, $date_str ) = @_;
+    my ( $year, $mon_str, $day, $time, $zone ) = split qr(\s+)x, $date_str;
+    if ( not exists $MONTH_NUM{ lc $mon_str } ) {
+        croak "bad month '$mon_str' in date";
+    }
+    my $mon  = int( $MONTH_NUM{ lc $mon_str } );
+    my $hour = int( substr( $time, 0, 2 ) );
+    my $min  = int( substr( $time, 2, 2 ) );
+    my $dt   = DateTime->new(
+        year      => int($year),
+        month     => $mon,
+        day       => int($day),
+        hour      => $hour,
+        minute    => $min,
+        time_zone => $zone
+    );
+    $dt->set_time_zone( $class->config_timezone() );    # convert to same time in selected time zone
+    return $dt;
+}
+
+# convert issue time to DateTime
+sub issue2dt
+{
+    my ( $class, $date_str ) = @_;
+    my ( $year, $mon, $day, $hour, $min, $sec ) = split qr([-:\s])x, $date_str;
+    my $dt = DateTime->new(
+        year      => int($year),
+        month     => $mon,
+        day       => int($day),
+        hour      => $hour,
+        minute    => $min,
+        second    => int($sec),
+        time_zone => "UTC"
+    );
+    $dt->set_time_zone( $class->config_timezone() );    # convert to same time in selected time zone
+    return $dt;
+}
+
+# convert DateTime to date/time/tz string
+sub dt2dttz
+{
+    my $dt = shift;
+    return $dt->ymd('-') . " " . $dt->hms(':') . " " . $dt->time_zone_short_name();
+}
 
 # perform SWPC request and save result in named file
 sub do_swpc_request
@@ -120,8 +169,6 @@ sub do_swpc_request
     }
     return;
 }
-
-# TODO
 
 # parse a message entry
 sub parse_message
@@ -349,7 +396,7 @@ sub date_from_level_forecast
             }
         }
         if ( defined $last_date ) {
-            my $issue_dt    = issue2dt( $item_ref->{issue_datetime} );
+            my $issue_dt    = $class->issue2dt( $item_ref->{issue_datetime} );
             my $issue_year  = $issue_dt->year();
             my $issue_month = $issue_dt->month();
             my $expire_year =
@@ -403,14 +450,14 @@ sub save_alert_status
     # set begin and expiration times based on various headers to that effect
     foreach my $begin_hdr (@BEGIN_HEADERS) {
         if ( exists $item_ref->{msg_data}{$begin_hdr} ) {
-            my $begin_dt = datestr2dt( $item_ref->{msg_data}{$begin_hdr} );
+            my $begin_dt = $class->datestr2dt( $item_ref->{msg_data}{$begin_hdr} );
             $item_ref->{derived}{begin} = DateTime::Format::ISO8601->format_datetime($begin_dt);
             last;
         }
     }
     foreach my $end_hdr (@END_HEADERS) {
         if ( exists $item_ref->{msg_data}{$end_hdr} ) {
-            my $end_dt = datestr2dt( $item_ref->{msg_data}{$end_hdr} );
+            my $end_dt = $class->datestr2dt( $item_ref->{msg_data}{$end_hdr} );
             $item_ref->{derived}{end} = DateTime::Format::ISO8601->format_datetime($end_dt);
             last;
         }
@@ -419,7 +466,7 @@ sub save_alert_status
     # set times for instantaneous events
     foreach my $instant_hdr (@INSTANTANEOUS_HEADERS) {
         if ( exists $item_ref->{msg_data}{$instant_hdr} ) {
-            my $tr_dt = datestr2dt( $item_ref->{msg_data}{$instant_hdr} );
+            my $tr_dt = $class->datestr2dt( $item_ref->{msg_data}{$instant_hdr} );
             $item_ref->{derived}{end}   = DateTime::Format::ISO8601->format_datetime($tr_dt);
             $item_ref->{derived}{begin} = $item_ref->{derived}{end};
             last;
@@ -429,7 +476,7 @@ sub save_alert_status
     # if end time was set but no begin, use issue time
     if ( ( not exists $item_ref->{derived}{begin} ) and ( exists $item_ref->{derived}{end} ) ) {
         $item_ref->{derived}{begin} =
-            DateTime::Format::ISO8601->format_datetime( issue2dt( $item_ref->{issue_datetime} ) );
+            DateTime::Format::ISO8601->format_datetime( $class->issue2dt( $item_ref->{issue_datetime} ) );
     }
 
     # if begin time was set but no end, copy begin time to end time
