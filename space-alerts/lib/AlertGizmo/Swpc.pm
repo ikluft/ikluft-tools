@@ -123,6 +123,79 @@ sub do_swpc_request
 
 # TODO
 
+# parse a message entry
+sub parse_message
+{
+    my ( $class, $item_ref ) = @_;
+
+    # decode message text info further data fields
+    $item_ref->{msg_data} = {};
+    my @msg_lines = split "\r\n", $item_ref->{message};
+    my $last_header;
+    for ( my $line = 0 ; $line <= scalar @msg_lines ; $line++ ) {
+        if ( ( not defined $msg_lines[$line] ) or ( length( $msg_lines[$line] ) == 0 ) ) {
+            undef $last_header;
+            next;
+        }
+        if ( $msg_lines[$line] =~ /^ \s* ([^:]*) : \s* (.*)/x ) {
+            my ( $key, $value ) = ( $1, $2 );
+            $item_ref->{msg_data}{$key} = $value;
+            $last_header = $key;
+
+            # check for continuation line (ends with ':')
+            if ( $msg_lines[$line] =~ /^ \s* [^:]* : $/x ) {
+
+                # bring in next line for continuation
+                if ( exists $msg_lines[ $line + 1 ] ) {
+                    $item_ref->{msg_data}{$key} = $msg_lines[ $line + 1 ];
+                    $line++;
+                }
+            }
+            next;
+        }
+        if ( defined $last_header ) {
+            $item_ref->{msg_data}{$last_header} .= "\n" . $msg_lines[$line];
+        } else {
+            if ( exists $item_ref->{msg_data}{notes} ) {
+                $item_ref->{msg_data}{notes} .= "\n" . $msg_lines[$line];
+            } else {
+                $item_ref->{msg_data}{notes} = $msg_lines[$line];
+            }
+        }
+    }
+    return;
+}
+
+# get an internal message id number from an alert (because Serial Number header turned out not to be unique)
+sub get_msgid
+{
+    my ( $class, $item_ref ) = @_;
+    my $serial   = $item_ref->{msg_data}{$SERIAL_HEADER};
+    my $issue    = $item_ref->{msg_data}{$ISSUE_HEADER};
+    my $msg_key  = $serial . "_" . $issue;
+
+    # get msgid hash from config
+    if ( not $class->has_config( "msgid" )) {
+        $class->config( [ "msgid" ], {} );
+    }
+    my $msgid_ref = $class->config( [ "msgid" ] );
+    if ( exists $msgid_ref->{$msg_key} ) {
+        return $msgid_ref->{$msg_key};
+    }
+
+    # generate new msgid
+    my $msg_count = scalar keys %$msgid_ref;
+    my $new_msgid = sprintf "%04x", $msg_count;
+    if ( exists $msgid_ref->{$new_msgid} ) {
+        my $params = $class->params();
+        say STDERR "data dump due to non-unique msgid $new_msgid:";
+        say STDERR Dumper($params);
+        confess "message id $new_msgid already exists when it should be uniquely new";
+    }
+    $msgid_ref->{$msg_key} = $new_msgid;
+    return $new_msgid;
+}
+
 # set status of an alert
 sub alert_set
 {
