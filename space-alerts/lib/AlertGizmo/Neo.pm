@@ -29,7 +29,6 @@ use IO::Interactive qw(is_interactive);
 use JSON;
 use URI::Escape;
 
-
 # constants
 Readonly::Scalar my $BACK_DAYS => 15;
 Readonly::Scalar my $NEO_API_URL =>
@@ -58,8 +57,6 @@ sub path_output
 {
     return $OUTHTML;
 }
-
-# TODO bring in functions from pull-nasa-neo.pl script here
 
 # internal computation for bgcolor for each table, called by dist2bgcolor()
 sub _dist2rgb
