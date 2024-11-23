@@ -20,6 +20,7 @@ use builtin      qw(true false);
 use charnames qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
+use File::Basename;
 use FindBin;
 use DateTime;
 use DateTime::Duration;
@@ -70,6 +71,20 @@ Readonly::Scalar my $RETAIN_TIME          => 12;    # hours to keep items after 
 Readonly::Array my @TITLE_KEYS => ( "SUMMARY", "ALERT", "WATCH", "WARNING", "EXTENDED WARNING" );
 Readonly::Array my @LEVEL_COLORS =>
     ( "#bbb", "#F6EB14", "#FFC800", "#FF9600", "#FF0000", "#C80000" );    # NOAA scales
+
+# get template path for this subclass
+# class method
+sub path_template
+{
+    return $TEMPLATE;
+}
+
+# get output file path for this subclass
+# class method
+sub path_output
+{
+    return $OUTHTML;
+}
 
 # convert date string to DateTime object
 sub datestr2dt
@@ -332,11 +347,11 @@ sub alert_is
     my $alert  = $params->{alerts}{$msgid};
     return $alert->{derived}{status} eq $state_str;
 }
-sub alert_is_none      { my $msgid = shift; return alert_is( $msgid, $S_NONE ); }
-sub alert_is_active    { my $msgid = shift; return alert_is( $msgid, $S_ACTIVE ); }
-sub alert_is_inactive  { my $msgid = shift; return alert_is( $msgid, $S_INACTIVE ); }
-sub alert_is_cancel    { my $msgid = shift; return alert_is( $msgid, $S_CANCEL ); }
-sub alert_is_supersede { my $msgid = shift; return alert_is( $msgid, $S_SUPERSEDE ); }
+sub alert_is_none      { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_NONE ); }
+sub alert_is_active    { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_ACTIVE ); }
+sub alert_is_inactive  { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_INACTIVE ); }
+sub alert_is_cancel    { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_CANCEL ); }
+sub alert_is_supersede { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_SUPERSEDE ); }
 
 # save list of active alert msgid's
 sub save_active_alerts
@@ -344,7 +359,7 @@ sub save_active_alerts
     my $class  = shift;
     my $params = $class->params();
 
-    $params->{active} = [ sort grep { alert_is_active($_) } keys %{ $params->{alerts} } ];
+    $params->{active} = [ sort grep { $class->alert_is_active($_) } keys %{ $params->{alerts} } ];
     return;
 }
 
@@ -507,7 +522,7 @@ sub save_alert_status
     }
 
     # activate the alert if it is not expired, canceled or superseded
-    if ( alert_is_none($msgid) ) {
+    if ( $class->alert_is_none($msgid) ) {
         $class->alert_set_active($msgid);
     }
 
