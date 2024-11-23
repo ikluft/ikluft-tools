@@ -643,8 +643,8 @@ sub post_template
         or croak "failed to symlink " . $paths->{outlink} . " to " . $paths->{outjson} . "; $!";
 
     # clean up old data files
-    opendir( my $dh, $OUTDIR )
-        or croak "Can't open $OUTDIR: $!";
+    opendir( my $dh, $class->config_dir() )
+        or croak "Can't open $class->config_dir(): $!";
     my @datafiles = sort { $b cmp $a } grep { /^ $OUTJSON -/x } readdir $dh;
     closedir $dh;
     if ( scalar @datafiles > 15 ) {
@@ -654,7 +654,7 @@ sub post_template
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = "$OUTDIR/$oldfile";
+            my $delpath = $class->config_dir()."/"/$oldfile;
             next if not -e $delpath;              # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 1.5 );    # don't remove files newer than 36 hours
 
