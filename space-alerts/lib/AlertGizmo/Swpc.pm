@@ -5,7 +5,8 @@
 # pragmas to silence some warnings from Perl::Critic
 ## no critic (Modules::RequireExplicitPackage)
 # This solves a catch-22 where parts of Perl::Critic want both package and use-strict to be first
-use Modern::Perl qw(2023);   # includes strict & warnings, boolean requires 5.36, try/catch requires 5.34
+use Modern::Perl qw(2023)
+    ;    # includes strict & warnings, boolean requires 5.36, try/catch requires 5.34
 ## use critic (Modules::RequireExplicitPackage)
 
 package AlertGizmo::Swpc;
@@ -17,7 +18,7 @@ use autodie;
 use experimental qw(builtin try);
 use feature      qw(say try);
 use builtin      qw(true false);
-use charnames qw(:loose);
+use charnames    qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
@@ -147,7 +148,7 @@ sub do_swpc_request
         }
         say STDERR "*** skip network access in test mode ***";
     } else {
-        my $url = $SWPC_JSON_URL;
+        my $url   = $SWPC_JSON_URL;
         my $proxy = $class->config_proxy();
         my ( $outstr, $errstr );
         my @cmd = (
@@ -175,11 +176,11 @@ sub do_swpc_request
         }
         if ($errstr) {
             say STDERR "stderr from command: $errstr";
-            $class->params( [ "curl_stderr" ], $errstr );
+            $class->params( ["curl_stderr"], $errstr );
         }
         if ($outstr) {
             say STDERR "stdout from command: $outstr";
-            $class->params( [ "curl_stdout" ], $outstr );
+            $class->params( ["curl_stdout"], $outstr );
         }
     }
     return;
@@ -232,15 +233,15 @@ sub parse_message
 sub get_msgid
 {
     my ( $class, $item_ref ) = @_;
-    my $serial   = $item_ref->{msg_data}{$SERIAL_HEADER};
-    my $issue    = $item_ref->{msg_data}{$ISSUE_HEADER};
-    my $msg_key  = $serial . "_" . $issue;
+    my $serial  = $item_ref->{msg_data}{$SERIAL_HEADER};
+    my $issue   = $item_ref->{msg_data}{$ISSUE_HEADER};
+    my $msg_key = $serial . "_" . $issue;
 
     # get msgid hash from config
-    if ( not $class->has_config( "msgid" )) {
-        $class->config( [ "msgid" ], {} );
+    if ( not $class->has_config("msgid") ) {
+        $class->config( ["msgid"], {} );
     }
-    my $msgid_ref = $class->config( [ "msgid" ] );
+    my $msgid_ref = $class->config( ["msgid"] );
     if ( exists $msgid_ref->{$msg_key} ) {
         return $msgid_ref->{$msg_key};
     }
@@ -347,11 +348,19 @@ sub alert_is
     my $alert  = $params->{alerts}{$msgid};
     return $alert->{derived}{status} eq $state_str;
 }
-sub alert_is_none      { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_NONE ); }
-sub alert_is_active    { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_ACTIVE ); }
-sub alert_is_inactive  { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_INACTIVE ); }
-sub alert_is_cancel    { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_CANCEL ); }
-sub alert_is_supersede { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_SUPERSEDE ); }
+sub alert_is_none   { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_NONE ); }
+sub alert_is_active { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_ACTIVE ); }
+sub alert_is_inactive {
+    my ( $class, $msgid ) = @_;
+    return $class->alert_is( $msgid, $S_INACTIVE );
+}
+sub alert_is_cancel { my ( $class, $msgid ) = @_; return $class->alert_is( $msgid, $S_CANCEL ); }
+
+sub alert_is_supersede
+{
+    my ( $class, $msgid ) = @_;
+    return $class->alert_is( $msgid, $S_SUPERSEDE );
+}
 
 # save list of active alert msgid's
 sub save_active_alerts
@@ -369,12 +378,12 @@ sub test_dump
     my $class = shift;
 
     # in verbose mode, dump the params hash
-    if (AlertGizmo::Config->verbose()) {
-        say STDERR Dumper($class->params());
+    if ( AlertGizmo::Config->verbose() ) {
+        say STDERR Dumper( $class->params() );
     }
 
     # in test mode, exit before messing with symlink or removing old files
-    if ( $class->config_test_mode()) {
+    if ( $class->config_test_mode() ) {
         my $params = $class->params();
         say 'test mode';
         say '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
@@ -394,7 +403,7 @@ sub test_dump
 # if 'Highest Storm Level Predicted by Day' is set, use those dates for effective times
 sub date_from_level_forecast
 {
-    my ($class, $item_ref) = @_;
+    my ( $class, $item_ref ) = @_;
     if ( exists $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER} ) {
         my $forecast_line = $item_ref->{msg_data}{$HIGHEST_LEVEL_HEADER};
         my @matches =
@@ -434,11 +443,11 @@ sub date_from_level_forecast
 # save alert status - active, inactive, canceled, superseded
 sub save_alert_status
 {
-    my ($class, $item_ref) = @_;
-    my $params     = $class->params();
-    my $msgid      = $item_ref->{derived}{id};
-    my $serial     = $item_ref->{msg_data}{$SERIAL_HEADER};
-    my $timestamp  = $class->config_timestamp();
+    my ( $class, $item_ref ) = @_;
+    my $params    = $class->params();
+    my $msgid     = $item_ref->{derived}{id};
+    my $serial    = $item_ref->{msg_data}{$SERIAL_HEADER};
+    my $timestamp = $class->config_timestamp();
 
     # check if serial number is marked as canceled or superseded
     if ( $params->{cancel}->contains($serial) ) {
@@ -491,7 +500,8 @@ sub save_alert_status
     # if end time was set but no begin, use issue time
     if ( ( not exists $item_ref->{derived}{begin} ) and ( exists $item_ref->{derived}{end} ) ) {
         $item_ref->{derived}{begin} =
-            DateTime::Format::ISO8601->format_datetime( $class->issue2dt( $item_ref->{issue_datetime} ) );
+            DateTime::Format::ISO8601->format_datetime(
+            $class->issue2dt( $item_ref->{issue_datetime} ) );
     }
 
     # if begin time was set but no end, copy begin time to end time
@@ -534,7 +544,7 @@ sub save_alert_status
 # process alert data - extract message header information
 sub process_alerts
 {
-    my $class = shift;
+    my $class  = shift;
     my $params = $class->params();
 
     # convert response JSON data to template-able result
@@ -598,21 +608,21 @@ sub pre_template
     my $class = shift;
 
     # initialize globals
-    $class->params( [ "timestamp" ], dt2dttz($class->config_timestamp()) );
-    $class->params( [ "alerts" ], {} );
-    $class->params( [ "cancel" ], Set::Tiny->new() );
-    $class->params( [ "supersede" ], Set::Tiny->new() );
+    $class->params( ["timestamp"], dt2dttz( $class->config_timestamp() ) );
+    $class->params( ["alerts"],    {} );
+    $class->params( ["cancel"],    Set::Tiny->new() );
+    $class->params( ["supersede"], Set::Tiny->new() );
 
     # clear destination symlink
     my $outlink = $OUTDIR . "/" . $OUTJSON;
-    $class->paths( [ "outlink" ], $outlink );
+    $class->paths( ["outlink"], $outlink );
     if ( -e $outlink ) {
         if ( not -l $outlink ) {
             croak "destination file $outlink is not a symlink";
         }
     }
     my $outjson = $outlink . "-" . $class->config_timestamp();
-    $class->paths( [ "outjson" ], $outjson );
+    $class->paths( ["outjson"], $outjson );
 
     # perform SWPC request
     $class->do_swpc_request();
@@ -621,7 +631,7 @@ sub pre_template
     # in case of JSON error, allow these to crash the program here before proceeding to symlinks
     my $json_path = $class->config_test_mode() ? $outlink : $outjson;
     my $json_text = File::Slurp::read_file($json_path);
-    $class->params( [ "json" ], JSON::from_json $json_text );
+    $class->params( ["json"], JSON::from_json $json_text );
 
     # convert response JSON data to template-able result
     $class->process_alerts();
@@ -654,7 +664,7 @@ sub post_template
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = $class->config_dir()."/"/$oldfile;
+            my $delpath = $class->config_dir() . "/" / $oldfile;
             next if not -e $delpath;              # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 1.5 );    # don't remove files newer than 36 hours
 

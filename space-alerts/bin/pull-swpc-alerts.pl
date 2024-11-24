@@ -9,7 +9,7 @@ use strict;
 use warnings;
 use utf8;
 use autodie;
-use Modern::Perl qw(2023);          # built-in boolean types require 5.36, try/catch requires 5.34
+use Modern::Perl qw(2023);    # built-in boolean types require 5.36, try/catch requires 5.34
 use AlertGizmo;
 use AlertGizmo::Swpc;
 

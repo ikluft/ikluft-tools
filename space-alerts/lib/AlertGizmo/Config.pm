@@ -5,10 +5,10 @@
 # pragmas to silence some warnings from Perl::Critic
 ## no critic (Modules::RequireExplicitPackage)
 # This solves a catch-22 where parts of Perl::Critic want both package and use-strict to be first
-use Modern::Perl qw(2023);   # includes strict & warnings
+use Modern::Perl qw(2023);    # includes strict & warnings
 ## use critic (Modules::RequireExplicitPackage)
 
-package AlertGizmo::Config; 
+package AlertGizmo::Config;
 
 use utf8;
 use autodie;
@@ -19,10 +19,10 @@ use builtin      qw(true false);
 use Carp         qw(confess);
 use results;
 use results::exceptions (
-        'NotFound' => { has => [ 'name' ] },
-        'NonIntegerIndex' => { has => [ 'str' ] },
-        qw( InvalidNodeType NoAutoArray )
-    );
+    'NotFound'        => { has => ['name'] },
+    'NonIntegerIndex' => { has => ['str'] },
+    qw( InvalidNodeType NoAutoArray )
+);
 
 # helper function to allow methods to get the singleton instance whether called as a class or instance method
 # private class function
@@ -43,9 +43,9 @@ sub _class_or_obj
     # instance method if it got an object reference
     return $coo if ref $coo;
 
-    # class method: return the instance via the instance() class method
-    # if the singleton object wasn't already instantiated, this will take care of it
-    # assumption: it must be string name of class AlertGizmo::Config or subclass of it - so it has instance()
+# class method: return the instance via the instance() class method
+# if the singleton object wasn't already instantiated, this will take care of it
+# assumption: it must be string name of class AlertGizmo::Config or subclass of it - so it has instance()
     return $coo->instance();
 }
 
@@ -56,23 +56,25 @@ sub _descend_hoh : Result
     my ( $node_ref, $key ) = @_;
 
     if ( ref $node_ref eq "HASH" ) {
+
         # descend into hash ref by string
-        if ( exists $node_ref->{ $key } ) {
-            if ( not ref $node_ref->{ $key } ) {
-                return ok( \$node_ref->{ $key } );
+        if ( exists $node_ref->{$key} ) {
+            if ( not ref $node_ref->{$key} ) {
+                return ok( \$node_ref->{$key} );
             }
-            return ok( $node_ref->{ $key } );
+            return ok( $node_ref->{$key} );
         } else {
             return NotFound->err( name => $key );
         }
     } elsif ( ref $node_ref eq "ARRAY" ) {
+
         # descend into array ref by int
-        if ( _str_is_int( $key )) {
-            if ( exists $node_ref->[ $key ] ) {
-                if ( not ref $node_ref->[ $key ] ) {
-                    return ok( \$node_ref->[ $key ] );
+        if ( _str_is_int($key) ) {
+            if ( exists $node_ref->[$key] ) {
+                if ( not ref $node_ref->[$key] ) {
+                    return ok( \$node_ref->[$key] );
                 }
-                return ok( $node_ref->[ $key ] );
+                return ok( $node_ref->[$key] );
             } else {
                 return NotFound->err( name => $key );
             }
@@ -90,43 +92,47 @@ sub _descend_hoh : Result
 # private class function
 sub _get_hoh_path : Result
 {
-    my ($class, @path) = @_;
+    my ( $class, @path ) = @_;
     my $instance = __PACKAGE__->instance();
     my $node_ref = $instance->{ $path[0] };
 
     # descend tree to arbitrary depth as long as data exists for each key
-    for my $index ( 1 .. ( scalar @path - 1 )) {
+    for my $index ( 1 .. ( scalar @path - 1 ) ) {
         my $node_result = _descend_hoh( $node_ref, $path[$index] );
-        if ( $node_result->is_ok()) {
+        if ( $node_result->is_ok() ) {
+
             # unwrap ref from result and continue
             $node_ref = $node_result->unwrap();
         } else {
+
             # return error result
             return $node_result;
         }
     }
-    return ok( $node_ref );
+    return ok($node_ref);
 }
 
 # make sure a path exists for writing to a possibly-new node
 # private class function
 sub _mk_hoh_path : Result
 {
-    my ($class, @path) = @_;
+    my ( $class, @path ) = @_;
     my $instance = __PACKAGE__->instance();
     my $node_ref = ( scalar @path > 0 ) ? $instance->{ $path[0] } : $instance;
 
     # descend tree creating nodes if necessary
-    for my $index ( 1 .. ( scalar @path - 1 )) {
+    for my $index ( 1 .. ( scalar @path - 1 ) ) {
         my $node_result = _descend_hoh( $node_ref, $path[$index] );
-        if ( $node_result->is_ok()) {
+        if ( $node_result->is_ok() ) {
+
             # unwrap ref from result and continue
             $node_ref = $node_result->unwrap();
         } else {
+
             # for NotFound errors, create missing nodes if possible
             my $node_err = $node_result->unwrap_err();
-            if ( $node_err->isa( 'AlertGizmo::Config::Exception::NotFound' )) {
-                if ( _str_is_int( $path[$index] )) {
+            if ( $node_err->isa('AlertGizmo::Config::Exception::NotFound') ) {
+                if ( _str_is_int( $path[$index] ) ) {
                     return NoAutoArray->err();
                 }
                 if ( ref $node_ref ne "HASH" ) {
@@ -135,12 +141,13 @@ sub _mk_hoh_path : Result
                 $node_ref->{ $path[$index] } = {};
                 $node_ref = $node_ref->{ $path[$index] };
             } else {
+
                 # return error result
                 return $node_result;
             }
         }
     }
-    return ok( $node_ref );
+    return ok($node_ref);
 }
 
 # get/set verbose flag
@@ -162,14 +169,14 @@ sub verbose
 sub contains
 {
     my ( $class_or_obj, @keys ) = @_;
-    my $instance = _class_or_obj($class_or_obj);
-    my $hoh_result = $instance->_get_hoh_path( @keys );
+    my $instance   = _class_or_obj($class_or_obj);
+    my $hoh_result = $instance->_get_hoh_path(@keys);
     if ( $hoh_result->is_err() ) {
         __PACKAGE__->verbose() and say STDERR "contains( " . join( " ", @keys ) . " ) -> not found";
-        $hoh_result->unwrap_err(); # touch error to satisfy results it wasn't ignored
+        $hoh_result->unwrap_err();    # touch error to satisfy results it wasn't ignored
         return false;
     }
-    $hoh_result->unwrap(); # touch result to satisfy results it wasn't ignored
+    $hoh_result->unwrap();            # touch result to satisfy results it wasn't ignored
     return true;
 }
 
@@ -179,14 +186,19 @@ sub contains
 sub read_accessor : Result
 {
     my ( $class_or_obj, @keys ) = @_;
-    my $instance = _class_or_obj($class_or_obj);
-    my $hoh_result = $instance->_get_hoh_path( @keys );
-    if ( $hoh_result->is_err()) {
-        __PACKAGE__->verbose() and say STDERR "read_accessor( "  . join( " ", @keys ) . " ) -> " . $hoh_result;
+    my $instance   = _class_or_obj($class_or_obj);
+    my $hoh_result = $instance->_get_hoh_path(@keys);
+    if ( $hoh_result->is_err() ) {
+        __PACKAGE__->verbose()
+            and say STDERR "read_accessor( " . join( " ", @keys ) . " ) -> " . $hoh_result;
         return $hoh_result;
     }
     my $value = $hoh_result->unwrap();
-    if ( ref $value eq "HASH" or ref $value eq "ARRAY" or ref $value eq "DateTime" or not ref $value ) {
+    if (   ref $value eq "HASH"
+        or ref $value eq "ARRAY"
+        or ref $value eq "DateTime"
+        or not ref $value )
+    {
         return ok($value);
     }
     return ok($$value);
@@ -198,16 +210,16 @@ sub read_accessor : Result
 sub write_accessor : Result
 {
     my ( $class_or_obj, $keys_ref, $value ) = @_;
-    my $instance = _class_or_obj($class_or_obj);
-    my @keys = ( ref $keys_ref eq "ARRAY" ) ? @$keys_ref : $keys_ref;
-    my $last_key = pop @keys;
-    my $hoh_result = $instance->_mk_hoh_path( @keys );
-    if ( $hoh_result->is_err()) {
+    my $instance   = _class_or_obj($class_or_obj);
+    my @keys       = ( ref $keys_ref eq "ARRAY" ) ? @$keys_ref : $keys_ref;
+    my $last_key   = pop @keys;
+    my $hoh_result = $instance->_mk_hoh_path(@keys);
+    if ( $hoh_result->is_err() ) {
         return $hoh_result;
     }
     my $node = $hoh_result->unwrap();
-    $node->{ $last_key } = $value;
-    return if not defined wantarray;  # return value prohibited in void context
+    $node->{$last_key} = $value;
+    return if not defined wantarray;    # return value prohibited in void context
     return ok();
 }
 
@@ -232,23 +244,25 @@ sub accessor : Result
 sub del
 {
     my ( $class_or_obj, @keys ) = @_;
-    my $instance = _class_or_obj($class_or_obj);
-    my $last_key = pop @keys;
-    my $hoh_result = $instance->_get_hoh_path( @keys );
-    if ( $hoh_result->is_err()) {
+    my $instance   = _class_or_obj($class_or_obj);
+    my $last_key   = pop @keys;
+    my $hoh_result = $instance->_get_hoh_path(@keys);
+    if ( $hoh_result->is_err() ) {
         return $hoh_result;
     }
     my $node = $hoh_result->unwrap();
 
     if ( ref $node eq "HASH" ) {
         if ( $node->contains($last_key) ) {
+
             # delete entry from hash
             return delete $node->{$last_key};
         }
     } elsif ( ref $node eq "ARRAY" ) {
-        if ( exists $node->[ int( $last_key ) ]) {
+        if ( exists $node->[ int($last_key) ] ) {
+
             # delete nth entry from array, shift higher items down and shrink array size
-            splice @$node, int( $last_key ), 1;
+            splice @$node, int($last_key), 1;
         }
     }
     return ok();

@@ -5,7 +5,8 @@
 # pragmas to silence some warnings from Perl::Critic
 ## no critic (Modules::RequireExplicitPackage)
 # This solves a catch-22 where parts of Perl::Critic want both package and use-strict to be first
-use Modern::Perl qw(2023);   # includes strict & warnings, boolean requires 5.36, try/catch requires 5.34
+use Modern::Perl qw(2023)
+    ;    # includes strict & warnings, boolean requires 5.36, try/catch requires 5.34
 ## use critic (Modules::RequireExplicitPackage)
 
 package AlertGizmo::Neo;
@@ -17,7 +18,7 @@ use autodie;
 use experimental qw(builtin try);
 use feature      qw(say try);
 use builtin      qw(true false);
-use charnames qw(:loose);
+use charnames    qw(:loose);
 use Readonly;
 use Carp qw(croak confess);
 use File::Basename;
@@ -33,16 +34,15 @@ use URI::Escape;
 Readonly::Scalar my $BACK_DAYS => 15;
 Readonly::Scalar my $NEO_API_URL =>
     "https://ssd-api.jpl.nasa.gov/cad.api?dist-max=2LD&sort=-date&diameter=true&date-min=%s";
-Readonly::Scalar my $NEO_LINK_URL =>
-    "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=";
-Readonly::Scalar my $OUTJSON  => "neo-data.json";
-Readonly::Scalar my $TEMPLATE => "close-approaches.tt";
-Readonly::Scalar my $OUTHTML  => "close-approaches.html";
-Readonly::Scalar my $E_RADIUS => 6378;
-Readonly::Scalar my $KM_IN_AU => 1.4959787e+08;
-Readonly::Scalar my $UC_QMARK => "\N{fullwidth question mark}";    # Unicode question mark
-Readonly::Scalar my $UC_NDASH => "\N{en dash}";                    # Unicode dash
-Readonly::Scalar my $UC_PLMIN => "\N{plus minus sign}";            # Unicode plus-minus sign
+Readonly::Scalar my $NEO_LINK_URL => "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=";
+Readonly::Scalar my $OUTJSON      => "neo-data.json";
+Readonly::Scalar my $TEMPLATE     => "close-approaches.tt";
+Readonly::Scalar my $OUTHTML      => "close-approaches.html";
+Readonly::Scalar my $E_RADIUS     => 6378;
+Readonly::Scalar my $KM_IN_AU     => 1.4959787e+08;
+Readonly::Scalar my $UC_QMARK     => "\N{fullwidth question mark}";    # Unicode question mark
+Readonly::Scalar my $UC_NDASH     => "\N{en dash}";                    # Unicode dash
+Readonly::Scalar my $UC_PLMIN     => "\N{plus minus sign}";            # Unicode plus-minus sign
 
 # get template path for this subclass
 # class method
@@ -177,17 +177,17 @@ sub do_neo_query
 
     # perform NEO query
     if ( $class->config_test_mode() ) {
-        if ( not -e $class->paths( [ "outlink" ] ) ) {
-            croak "test mode requires " . $class->paths( [ "outlink" ] ) . " to exist";
+        if ( not -e $class->paths( ["outlink"] ) ) {
+            croak "test mode requires " . $class->paths( ["outlink"] ) . " to exist";
         }
         say "*** skip API access in test mode ***";
     } else {
-        my $url = sprintf $NEO_API_URL, $class->params( [ "start_date" ] );
+        my $url = sprintf $NEO_API_URL, $class->params( ["start_date"] );
         my ( $outstr, $errstr );
         my $proxy = $class->config_proxy();
-        my @cmd = (
+        my @cmd   = (
             "/usr/bin/curl", "--silent", ( ( defined $proxy ) ? ( "--proxy", $proxy ) : () ),
-            "--output", $class->paths( [ "outjson" ] ), $url
+            "--output", $class->paths( ["outjson"] ), $url
         );
         IPC::Run::run( \@cmd, '<', \undef, '>', \$outstr, '2>', \$errstr );
 
@@ -205,8 +205,8 @@ sub do_neo_query
         if ( $retcode != 0 ) {
             confess sprintf "command (" . join( " ", @cmd ) . " exited with code $retcode";
         }
-        if ( -z $class->paths( [ "outjson" ] ) ) {
-            croak "JSON data file " . $class->paths( [ "outjson" ] ) . " is empty";
+        if ( -z $class->paths( ["outjson"] ) ) {
+            croak "JSON data file " . $class->paths( ["outjson"] ) . " is empty";
         }
         if ($errstr) {
             say "stderr from command: $errstr";
@@ -244,34 +244,33 @@ sub get_diameter
     my ( $class, $raw_item ) = @_;
 
     # if diameter data was provided, use it
-    my $fnum_diameter = $class->params( [ qw( fnum diameter ) ] );
-    if (    ( exists $raw_item->[ $fnum_diameter ] )
-        and ( defined $raw_item->[ $fnum_diameter ] )
-        and ( $raw_item->[ $fnum_diameter ] ne "null" ) )
+    my $fnum_diameter = $class->params( [qw( fnum diameter )] );
+    if (    ( exists $raw_item->[$fnum_diameter] )
+        and ( defined $raw_item->[$fnum_diameter] )
+        and ( $raw_item->[$fnum_diameter] ne "null" ) )
     {
         # diameter data found - format it with or without diameter_sigma
-        my $diameter = "" . int( $raw_item->[ $fnum_diameter * 1000.0 ] + 0.5 );
-        my $fnum_diameter_sigma = $class->params( [ qw( fnum diameter_sigma ) ] );
-        if (    ( exists $raw_item->[ $fnum_diameter_sigma ] )
-            and ( defined $raw_item->[ $fnum_diameter_sigma ] )
-            and ( $raw_item->[ $fnum_diameter_sigma ] ne "null" ) )
+        my $diameter            = "" . int( $raw_item->[ $fnum_diameter * 1000.0 ] + 0.5 );
+        my $fnum_diameter_sigma = $class->params( [qw( fnum diameter_sigma )] );
+        if (    ( exists $raw_item->[$fnum_diameter_sigma] )
+            and ( defined $raw_item->[$fnum_diameter_sigma] )
+            and ( $raw_item->[$fnum_diameter_sigma] ne "null" ) )
         {
-            $diameter .= " "
-                . $UC_PLMIN . " "
-                . int( $raw_item->[ $fnum_diameter_sigma ] * 1000.0 + 0.5 );
+            $diameter .=
+                " " . $UC_PLMIN . " " . int( $raw_item->[$fnum_diameter_sigma] * 1000.0 + 0.5 );
         }
         return $diameter;
     }
 
     # if magnitude data was provided, estimate diameter from it
     # according to API definition, h (absolute magnitude) should be provided
-    my $fnum_h = $class->params( [ qw( fnum h ) ] );
-    if (    ( exists $raw_item->[ $fnum_h ] )
-        and ( defined $raw_item->[ $fnum_h ] )
-        and ( $raw_item->[ $fnum_h ] ne "null" ) )
+    my $fnum_h = $class->params( [qw( fnum h )] );
+    if (    ( exists $raw_item->[$fnum_h] )
+        and ( defined $raw_item->[$fnum_h] )
+        and ( $raw_item->[$fnum_h] ne "null" ) )
     {
-        my $min = int( h_to_diameter_m( $raw_item->[ $fnum_h ], 0.25 ) + 0.5 );
-        my $max = int( h_to_diameter_m( $raw_item->[ $fnum_h ], 0.05 ) + 0.5 );
+        my $min = int( h_to_diameter_m( $raw_item->[$fnum_h], 0.25 ) + 0.5 );
+        my $max = int( h_to_diameter_m( $raw_item->[$fnum_h], 0.05 ) + 0.5 );
         return $min . $UC_NDASH . $max;
     }
 
@@ -286,54 +285,57 @@ sub pre_template
 
     # compute query start date from $BACK_DAYS days ago
     my $timestamp = $class->config_timestamp();
-    my $start_date = $timestamp->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
-    $class->params( [ "start_date" ], $start_date );
+    my $start_date =
+        $timestamp->clone()->set_time_zone('UTC')->subtract( days => $BACK_DAYS )->date();
+    $class->params( ["start_date"], $start_date );
     is_interactive() and say "start date: " . $start_date;
 
     # clear destination symlink
-    $class->paths( [ qw( outlink ) ], $class->config_dir() . "/" . $OUTJSON );
-    if ( -e $class->paths( [ qw( outlink ) ] ) ) {
-        if ( not -l $class->paths( [ qw( outlink ) ] )) {
-            croak "destination file " . $class->paths( [ qw( outlink ) ] ) . " is not a symlink";
+    $class->paths( [qw( outlink )], $class->config_dir() . "/" . $OUTJSON );
+    if ( -e $class->paths( [qw( outlink )] ) ) {
+        if ( not -l $class->paths( [qw( outlink )] ) ) {
+            croak "destination file " . $class->paths( [qw( outlink )] ) . " is not a symlink";
         }
     }
-    $class->paths( [ qw( outjson ) ], $class->paths( [ qw( outlink ) ] ) . "-" . $class->config_timestamp());
+    $class->paths( [qw( outjson )],
+        $class->paths( [qw( outlink )] ) . "-" . $class->config_timestamp() );
 
     # perform NEO query
     $class->do_neo_query();
 
     # read JSON into template data
     # in case of JSON error, allow these to crash the program here before proceeding to symlinks
-    my $json_path = $class->config_test_mode()
-        ? $class->paths( [ qw( outlink ) ] )
-        : $class->paths( [ qw( outjson ) ] );
+    my $json_path =
+          $class->config_test_mode()
+        ? $class->paths( [qw( outlink )] )
+        : $class->paths( [qw( outjson )] );
     my $json_text = File::Slurp::read_file($json_path);
-    $class->params( [ "json" ], JSON::from_json $json_text );
-    my $json_data = $class->params( [ qw( json data ) ] );
+    $class->params( ["json"], JSON::from_json $json_text );
+    my $json_data = $class->params( [qw( json data )] );
 
     # check API version number
-    my $api_version = $class->params( [ qw( json signature version ) ] );
+    my $api_version = $class->params( [qw( json signature version )] );
     if ( $api_version ne "1.5" ) {
         croak "API version changed to " . $api_version . " - code needs update to handle it";
     }
 
     # collect field names/numbers from JSON
-    $class->params( [ "fnum" ], {} );
-    my $fields_ref = $class->params( [ qw( json fields ) ] );
+    $class->params( ["fnum"], {} );
+    my $fields_ref = $class->params( [qw( json fields )] );
     for ( my $fnum = 0 ; $fnum < scalar @$fields_ref ; $fnum++ ) {
         $class->params( [ "fnum", $fields_ref->[$fnum] ], $fnum );
     }
 
     # convert API results to template-able list
-    $class->params( [ "neos" ], [] );
-    my $neos_ref = $class->params( [ "neos" ] );
-    foreach my $raw_item ( @$json_data ) {
+    $class->params( ["neos"], [] );
+    my $neos_ref = $class->params( ["neos"] );
+    foreach my $raw_item (@$json_data) {
 
         # start NEO record
         my %item;
-        $item{des}   = $raw_item->[ $class->params( [ qw( fnum des ) ] ) ];
-        $item{cd}    = $raw_item->[ $class->params( [ qw( fnum cd ) ] ) ];
-        $item{v_rel} = int( $raw_item->[ $class->params( [ qw( fnum v_rel ) ] ) ] + 0.5 );
+        $item{des}   = $raw_item->[ $class->params( [qw( fnum des )] ) ];
+        $item{cd}    = $raw_item->[ $class->params( [qw( fnum cd )] ) ];
+        $item{v_rel} = int( $raw_item->[ $class->params( [qw( fnum v_rel )] ) ] + 0.5 );
 
         # distance computation
         foreach my $param_name (qw(dist dist_min dist_max)) {
@@ -370,12 +372,13 @@ sub post_template
     my $class = shift;
 
     # make a symlink to new data
-    if ( -l $class->paths( [ "outlink" ] ) ) {
-        unlink $class->paths( [ "outlink" ] );
+    if ( -l $class->paths( ["outlink"] ) ) {
+        unlink $class->paths( ["outlink"] );
     }
-    symlink basename( $class->paths( [ "outjson" ] ) ), $class->paths( [ "outlink" ] )
-        or croak "failed to symlink " . $class->paths( [ "outlink" ] ) . " to "
-            . $class->paths( [ "outjson" ] ) . ": $!";
+    symlink basename( $class->paths( ["outjson"] ) ), $class->paths( ["outlink"] )
+        or croak "failed to symlink "
+        . $class->paths( ["outlink"] ) . " to "
+        . $class->paths( ["outjson"] ) . ": $!";
 
     # clean up old data files
     opendir( my $dh, $class->config_dir() )
@@ -389,7 +392,7 @@ sub post_template
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = $class->config_dir()."/".$oldfile;
+            my $delpath = $class->config_dir() . "/" . $oldfile;
             next if not -e $delpath;               # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 0.65 );    # don't remove files newer than 15 hours
 
