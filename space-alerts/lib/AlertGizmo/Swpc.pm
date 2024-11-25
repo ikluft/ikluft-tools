@@ -385,15 +385,15 @@ sub test_dump
     # in test mode, exit before messing with symlink or removing old files
     if ( $class->config_test_mode() ) {
         my $params = $class->params();
-        say 'test mode';
-        say '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
-        say '* active ' . join( " ", @{ $params->{active} } );
-        say '* cancel: ' . join( " ", sort $params->{cancel}->elements() );
-        say '* supersede: ' . join( " ", sort $params->{supersede}->elements() );
+        say STDERR 'test mode';
+        say STDERR '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
+        say STDERR '* active ' . join( " ", @{ $params->{active} } );
+        say STDERR '* cancel: ' . join( " ", sort $params->{cancel}->elements() );
+        say STDERR '* supersede: ' . join( " ", sort $params->{supersede}->elements() );
 
         # display active alerts
         foreach my $alert_serial ( @{ $params->{active} } ) {
-            say "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
+            say STDERR "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
         }
         exit 0;
     }

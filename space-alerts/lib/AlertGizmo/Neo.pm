@@ -180,7 +180,7 @@ sub do_neo_query
         if ( not -e $class->paths( ["outlink"] ) ) {
             croak "test mode requires " . $class->paths( ["outlink"] ) . " to exist";
         }
-        say "*** skip API access in test mode ***";
+        say STDERR "*** skip API access in test mode ***";
     } else {
         my $url = sprintf $NEO_API_URL, $class->params( ["start_date"] );
         my ( $outstr, $errstr );
