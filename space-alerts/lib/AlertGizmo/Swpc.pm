@@ -664,7 +664,7 @@ sub post_template
             # double check we're only removing old JSON files
             next if ( ( substr $oldfile, 0, length($OUTJSON) ) ne $OUTJSON );
 
-            my $delpath = $class->config_dir() . "/" / $oldfile;
+            my $delpath = $class->config_dir() . "/" . $oldfile;
             next if not -e $delpath;              # skip if the file doesn't exist
             next if ( ( -M $delpath ) < 1.5 );    # don't remove files newer than 36 hours
 
