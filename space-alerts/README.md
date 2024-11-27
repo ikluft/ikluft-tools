@@ -9,6 +9,11 @@ This directory contains scripts I've written which monitor space-related alerts 
      - language: Perl5🧅
      - dependencies: [curl](https://curl.se/), [Template Toolkit](http://www.template-toolkit.org/)
      - example template text: [noaa-swpc-alerts.tt](noaa-swpc-alerts.tt)
+- lib (library directory)
+  - AlertGizmo.pm - base class for AlertGizmo feed monitors
+  - AlertGizmo/Config.pm - configuration data for AlertGizmo classes
+  - AlertGizmo/Neo.pm - AlertGizmo monitor for NASA JPL Near-Earth Object (NEO) close approach data
+  - AlertGizmo/Swpc.pm - AlertGizmo monitor for NOAA Space Weather Prediction Center (SWPC) alerts, including aurora
 
 To run these scripts from a crontab, first use 'crontab -l' to determine if you have one set up, and that the crontab command is installed. (If it isn't installed, Linux packages such as [cronie](https://github.com/cronie-crond/cronie) can perform [modern cron](https://en.wikipedia.org/wiki/Cron#Modern_versions) functions. If on a small embedded Linux system, [BusyBox](https://en.wikipedia.org/wiki/BusyBox) or [Toybox](https://en.wikipedia.org/wiki/Toybox) also provide a crontab command.)
 
