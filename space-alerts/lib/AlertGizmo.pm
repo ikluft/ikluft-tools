@@ -337,3 +337,22 @@ sub main
 ## critic (Subroutines::RequireFinalReturn)
 
 1;
+
+=pod
+
+=encoding utf8
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+=head1 INSTALLATION
+
+=head1 FUNCTIONS AND METHODS
+
+=head1 LICENSE
+
+=head1 SEE ALSO
+
+=head1 BUGS AND LIMITATIONS
+
