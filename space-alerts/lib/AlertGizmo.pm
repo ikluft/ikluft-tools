@@ -251,7 +251,7 @@ sub test_dump
 
     # in test mode, exit before messing with symlink or removing old files
     if ( $class->config_test_mode() ) {
-        say "test mode: params=" . Dumper( $class->params() );
+        say STDERR "test mode: params=" . Dumper( $class->params() );
         exit 0;
     }
     return;
