@@ -384,7 +384,7 @@ sub test_dump
         say STDERR Dumper( $class->params() );
     }
 
-    # in test mode, exit before messing with symlink or removing old files
+    # in test or verbose mode, show structure of SWPC alert data
     if ( $test_mode or $verbose_mode ) {
         my $params = $class->params();
         say STDERR 'test mode';
@@ -398,6 +398,8 @@ sub test_dump
             say STDERR "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
         }
     }
+
+    # in test mode, exit before messing with symlink or removing old files
     if ( $test_mode ) {
         exit 0;
     }
