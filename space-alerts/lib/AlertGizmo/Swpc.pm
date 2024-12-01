@@ -376,14 +376,16 @@ sub save_active_alerts
 sub test_dump
 {
     my $class = shift;
+    my $verbose_mode = AlertGizmo::Config->verbose();
+    my $test_mode = $class->config_test_mode();
 
     # in verbose mode, dump the params hash
-    if ( AlertGizmo::Config->verbose() ) {
+    if ( $verbose_mode ) {
         say STDERR Dumper( $class->params() );
     }
 
     # in test mode, exit before messing with symlink or removing old files
-    if ( $class->config_test_mode() ) {
+    if ( $test_mode or $verbose_mode ) {
         my $params = $class->params();
         say STDERR 'test mode';
         say STDERR '* alert keys: ' . join( " ", sort keys %{ $params->{alerts} } );
@@ -395,6 +397,8 @@ sub test_dump
         foreach my $alert_serial ( @{ $params->{active} } ) {
             say STDERR "alert $alert_serial: " . Dumper( $params->{alerts}{$alert_serial} );
         }
+    }
+    if ( $test_mode ) {
         exit 0;
     }
     return;
