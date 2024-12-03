@@ -265,7 +265,7 @@ sub main_inner
     # load subclass-specific argument list, then read command line arguments
     my @cli_options = (@CLI_OPTIONS);
     if ( $class->can("cli_options") ) {
-        push @cli_options, $class->cli_options();
+        push @cli_options, ( $class->cli_options());
     }
     GetOptions( AlertGizmo->options(), @cli_options );
 
