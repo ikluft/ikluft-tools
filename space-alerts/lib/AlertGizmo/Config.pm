@@ -157,10 +157,13 @@ sub verbose
     my ( $class_or_obj, $value ) = @_;
     my $instance = _class_or_obj($class_or_obj);
     if ( defined $value ) {
-        $instance->{verbose} = $value ? true : false;
+        if ( not exists $instance->{options} ) {
+            $instance->{options} = {};
+        }
+        $instance->{options}{verbose} = $value ? true : false;
         return;
     }
-    return $instance->{verbose};
+    return $instance->{options}{verbose} // false;
 }
 
 # check for existence of a config entry
