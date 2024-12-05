@@ -63,7 +63,8 @@ sub config
 {
     my ( $class, $keys_ref, $value ) = @_;
     my $result = AlertGizmo::Config->accessor( $keys_ref, $value );
-    AlertGizmo::Config->verbose() and say STDERR "config: result type " . ref($result);
+    AlertGizmo::Config->verbose() and say STDERR "config: " . ( join( "-", @$keys_ref )) . " result type "
+        . ref($result);
     if ( $result->is_err() ) {
         my $err = $result->unwrap_err();
         AlertGizmo::Config->verbose() and say STDERR "config: result err " . ref($err);
