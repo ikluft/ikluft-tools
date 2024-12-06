@@ -249,6 +249,9 @@ sub get_msgid
     # generate new msgid
     my $msg_count = scalar keys %$msgid_ref;
     my $new_msgid = sprintf "%04x", $msg_count;
+    if ( AlertGizmo::Config->verbose() ) {
+        say STDERR "get_msgid($msg_key) -> $new_msgid";
+    }
     if ( exists $msgid_ref->{$new_msgid} ) {
         my $params = $class->params();
         say STDERR "data dump due to non-unique msgid $new_msgid:";
