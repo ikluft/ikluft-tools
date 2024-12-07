@@ -62,6 +62,9 @@ sub version
 sub config
 {
     my ( $class, $keys_ref, $value ) = @_;
+    if ( not defined $keys_ref ) {
+        return AlertGizmo::Config->accessor()->unwrap();
+    }
     my $result = AlertGizmo::Config->accessor( $keys_ref, $value );
     AlertGizmo::Config->verbose() and say STDERR "config: " . ( join( "-", @$keys_ref )) . " result type "
         . ref($result);

@@ -237,6 +237,12 @@ sub get_msgid
     my $issue   = $item_ref->{msg_data}{$ISSUE_HEADER};
     my $msg_key = $serial . "_" . $issue;
 
+    # debugging temporary: check config contents
+    if ( AlertGizmo::Config->verbose() ) {
+        my $config_ref = $class->config();
+        say STDERR "debug: get_msgid config -> " . Dumper( $config_ref );
+    }
+
     # get msgid hash from config
     if ( not $class->has_config("msgid") ) {
         $class->config( ["msgid"], {} );
@@ -251,12 +257,7 @@ sub get_msgid
     my $new_msgid = sprintf "%04x", $msg_count;
     if ( AlertGizmo::Config->verbose() ) {
         say STDERR "get_msgid($msg_key) -> $new_msgid";
-    }
-    if ( exists $msgid_ref->{$new_msgid} ) {
-        my $params = $class->params();
-        say STDERR "data dump due to non-unique msgid $new_msgid:";
-        say STDERR Dumper($params);
-        confess "message id $new_msgid already exists when it should be uniquely new";
+        say STDERR "msgid_ref: " . Dumper( $msgid_ref );
     }
     $msgid_ref->{$msg_key} = $new_msgid;
     return $new_msgid;

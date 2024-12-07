@@ -94,6 +94,9 @@ sub _get_hoh_path : Result
 {
     my ( $class, @path ) = @_;
     my $instance = __PACKAGE__->instance();
+    if ( not scalar @path ) {
+        return ok( $instance );
+    }
     my $node_ref = $instance->{ $path[0] };
 
     # descend tree to arbitrary depth as long as data exists for each key
@@ -109,7 +112,7 @@ sub _get_hoh_path : Result
             return $node_result;
         }
     }
-    return ok($node_ref);
+    return ok( $node_ref );
 }
 
 # make sure a path exists for writing to a possibly-new node
