@@ -21,7 +21,7 @@ use results;
 use results::exceptions (
     'NotFound'        => { has => ['name'] },
     'NonIntegerIndex' => { has => ['str'] },
-    qw( InvalidNodeType NoAutoArray )
+    qw( InvalidNodeType NoAutoArray UndefValue )
 );
 
 # helper function to allow methods to get the singleton instance whether called as a class or instance method
@@ -94,8 +94,11 @@ sub _get_hoh_path : Result
 {
     my ( $class, @path ) = @_;
     my $instance = __PACKAGE__->instance();
-    if ( not scalar @path ) {
+    if (( scalar @path ) == 0 ) {
         return ok( $instance );
+    }
+    if ( not defined $path[0] ) {
+        return UndefValue->err();
     }
     my $node_ref = $instance->{ $path[0] };
 
@@ -200,14 +203,10 @@ sub read_accessor : Result
         return $hoh_result;
     }
     my $value = $hoh_result->unwrap();
-    if (   ref $value eq "HASH"
-        or ref $value eq "ARRAY"
-        or ref $value eq "DateTime"
-        or not ref $value )
-    {
-        return ok($value);
+    if ( ref $value eq "SCALAR" ) {
+        return ok($$value);
     }
-    return ok($$value);
+    return ok($value);
 }
 
 # configuration write accessor
@@ -237,6 +236,7 @@ sub accessor : Result
     my $instance = _class_or_obj($class_or_obj);
 
     # if no value is provided, use read accessor
+    $keys_ref //= [];
     if ( not defined $value ) {
         my @keys = ( ref $keys_ref eq "ARRAY" ) ? @$keys_ref : $keys_ref;
         return $instance->read_accessor(@keys);
