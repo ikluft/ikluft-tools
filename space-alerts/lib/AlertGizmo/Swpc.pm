@@ -33,6 +33,9 @@ use IO::Interactive qw(is_interactive);
 use JSON;
 use Data::Dumper;
 
+# initialize class static variables
+AlertGizmo::Config->accessor( ["msgid"], {} );
+
 # constants
 Readonly::Scalar my $SWPC_JSON_URL => "https://services.swpc.noaa.gov/products/alerts.json";
 Readonly::Scalar my $OUTDIR        => $FindBin::Bin;
@@ -244,9 +247,6 @@ sub get_msgid
     }
 
     # get msgid hash from config
-    if ( not $class->has_config("msgid") ) {
-        $class->config( ["msgid"], {} );
-    }
     my $msgid_ref = $class->config( ["msgid"] );
     if ( exists $msgid_ref->{$msg_key} ) {
         return $msgid_ref->{$msg_key};
