@@ -1,4 +1,7 @@
-This directory contains scripts I've written which monitor space-related alerts online. These can be run manually or from crontabs. (see example below)
+Tools for Space Alerts
+----------------------
+
+This directory contains scripts I've written which monitor space-related alerts online. The common code among the scripts was pulled together into the AlertGizmo module. These can be run manually or from crontabs. (see example below)
 
 - bin (script directory)
   - *[pull-nasa-neo.pl](bin/pull-nasa-neo.pl)* reads NASA JPL data on Near Earth Object (NEO) asteroid close approaches to Earth, within 2 lunar distances (LD) and makes a table of upcoming events and recent ones within 15 days.
