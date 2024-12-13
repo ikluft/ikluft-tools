@@ -348,6 +348,13 @@ sub main
 
 =head1 SYNOPSIS
 
+    use AlertGizmo;
+    use AlertGizmo::Subclass; # fictional subclass example, use an actual subclass (i.e. Neo, Swpc) in its place
+
+    # set implementation subclass to example AlertGizmo::Subclass, then run AlertGizmo's main()
+    AlertGizmo::Subclass->set_class();
+    AlertGizmo->main();
+
 =head1 DESCRIPTION
 
 =head1 INSTALLATION

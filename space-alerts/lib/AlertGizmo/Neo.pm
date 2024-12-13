@@ -411,6 +411,13 @@ sub post_template
 
 =head1 SYNOPSIS
 
+    use AlertGizmo;
+    use AlertGizmo::Neo;
+
+    # set implementation subclass to AlertGizmo::Neo, then run AlertGizmo's main()
+    AlertGizmo::Neo->set_class();
+    AlertGizmo->main();
+
 =head1 DESCRIPTION
 
 =head1 INSTALLATION

@@ -694,6 +694,13 @@ sub post_template
 
 =head1 SYNOPSIS
 
+    use AlertGizmo;
+    use AlertGizmo::Swpc;
+
+    # set implementation subclass to AlertGizmo::Swpc, then run AlertGizmo's main()
+    AlertGizmo::Swpc->set_class();
+    AlertGizmo->main();
+
 =head1 DESCRIPTION
 
 =head1 INSTALLATION
