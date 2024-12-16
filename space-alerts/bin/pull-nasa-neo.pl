@@ -28,6 +28,25 @@ __END__
 
 =head1 OPTIONS
 
+=over
+
+=item --dir=directory
+
+This sets the directory where the script looks for templates, saves remote data and generates HTML output.
+The default is the directory where the script is located, which probably only makes sense if it's a symlink
+in the directory where the templates, data and output are located.
+
+=item --tz=timezone
+
+This sets the time zone which will be used for displaying local time (normally on HTML mouse-over text).
+The default is the current timezone setting for the running process.
+
+=item --proxy=proxy-string
+
+This sets a network proxy. The default is not to change the proxy setting, or not use one if it wasn't set in the environment.
+
+=back
+
 =head1 EXIT STATUS
 
 The program returns the standard Unix exit codes of 0 for success and non-zero for errors.
