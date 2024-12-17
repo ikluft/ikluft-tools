@@ -25,9 +25,34 @@ __END__
 
 =head1 USAGE
 
-    pull-swpc-alerts.pl [--dir=directory] [--tz=timezone] [--proxy=proxy-string]
+    pull-swpc-alerts.pl [--dir=directory] [--tz=timezone] [--proxy=proxy-string] [--verbose] [--test]
 
 =head1 OPTIONS
+
+=item --dir=directory
+
+This sets the directory where the script looks for templates, saves remote data and generates HTML output.
+The default is the directory where the script is located, which probably only makes sense if it's a symlink
+in the directory where the templates, data and output are located.
+
+=item --tz=timezone
+
+This sets the time zone which will be used for displaying local time (normally on HTML mouse-over text).
+The default is the current timezone setting for the running process.
+
+=item --proxy=proxy-string
+
+This sets a network proxy. The default is not to change the proxy setting, or not use one if it wasn't set in the environment.
+
+=item --verbose
+
+This sets verbose mode, which is mainly of interest to developers for printing program status and progress.
+
+=item --test
+
+This sets test mode, which is mainly of interest to developers for stopping processing before writing to output files and just dumping the internal data set.
+
+=back
 
 =head1 EXIT STATUS
 
