@@ -367,3 +367,8 @@ sub main
 
 =head1 BUGS AND LIMITATIONS
 
+Please report bugs via GitHub at L<https://github.com/ikluft/ikluft-tools/issues>
+
+Patches and enhancements may be submitted via a pull request at L<https://github.com/ikluft/ikluft-tools/pulls>
+
+=cut
