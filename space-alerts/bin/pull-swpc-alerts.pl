@@ -29,6 +29,8 @@ __END__
 
 =head1 OPTIONS
 
+=over
+
 =item --dir=directory
 
 This sets the directory where the script looks for templates, saves remote data and generates HTML output.
