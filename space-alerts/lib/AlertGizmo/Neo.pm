@@ -420,6 +420,8 @@ sub post_template
 
 =head1 DESCRIPTION
 
+AlertGizmo::Neo reads data on NASA JPL Near Earth Object "NEO" passes, producing an HTML table of asteroid passes in the past 2 weeks or known upcoming passes up to 2 months in the future.
+
 =head1 INSTALLATION
 
 =head1 FUNCTIONS AND METHODS
