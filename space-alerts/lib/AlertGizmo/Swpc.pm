@@ -703,6 +703,8 @@ sub post_template
 
 =head1 DESCRIPTION
 
+AlertGizmo::Swpc reads data from NOAA's Space Weather Prediction Center (SWPC) on alerts related to solar flares and aurora, producing an HTML table of active unexpired alerts.
+
 =head1 INSTALLATION
 
 =head1 FUNCTIONS AND METHODS
