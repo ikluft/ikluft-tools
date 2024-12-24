@@ -357,6 +357,10 @@ sub main
 
 =head1 DESCRIPTION
 
+AlertGizmo is the module with core routines which its subclasses use to implement reading and processing news and alerts from the web.
+
+Current subclasses which AlertGizmo was developed to support are AlertGizmo::Neo (NASA Near Earth Object "NEO") passes) and AlertGizmo::Swpc (NOAA Space Weather Prediction Center alerts for solar flares and aurora).
+
 =head1 INSTALLATION
 
 =head1 FUNCTIONS AND METHODS
