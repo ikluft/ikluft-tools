@@ -295,6 +295,14 @@ sub _str_is_int
 
 =head1 SYNOPSIS
 
+    use AlertGizmo::Config;
+
+    AlertGizmo::Config->accessor( ["example"], "value" );            # write accessor
+
+    my $value = AlertGizmo::Config->accessor( ["example"] );    # read accessor
+
+    AlertGizmo::Config->verbose() and say STDERR "config: verbose mode on";
+
 =head1 DESCRIPTION
 
 =head1 INSTALLATION
