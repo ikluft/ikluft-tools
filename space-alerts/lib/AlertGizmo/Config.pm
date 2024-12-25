@@ -297,9 +297,13 @@ sub _str_is_int
 
     use AlertGizmo::Config;
 
-    AlertGizmo::Config->accessor( ["example"], "value" );            # write accessor
+    AlertGizmo::Config->accessor( ["example"], "value" );   # write accessor
 
-    my $value = AlertGizmo::Config->accessor( ["example"] );    # read accessor
+    $value = AlertGizmo::Config->accessor( ["example"] );   # read accessor
+
+    $value2 = AlertGizmo::Config->contains(@keys);          # check existence of keys in Config
+
+    $result = AlertGizmo::Config->del(@keys);               # delete entries by keys from Config
 
     AlertGizmo::Config->verbose() and say STDERR "config: verbose mode on";
 
