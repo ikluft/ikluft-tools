@@ -363,6 +363,45 @@ Current subclasses which AlertGizmo was developed to support are AlertGizmo::Neo
 
 =head1 INSTALLATION
 
+AlertGizmo is available by downloading from the Github repository.
+
+=head2 Perl Development Environment
+
+The source code repository is in a subdirectory at L<https://github.com/ikluft/ikluft-tools/tree/master/space-alerts> .
+
+For a development environment, make sure Perl is installed. Check first if binary packages are available for your OS & p
+latform. More information can be found at L<https://metacpan.org/dist/perl/view/INSTALL>.
+
+Then install App::cpanminus (cpanm), Dist::Zilla (dzil) and Perl::Critic (perlcritic).
+
+On Debian-based Linux systems they can be installed with this command as root:
+
+    apt update
+    apt install cpanminus libdist-zilla-perl libperl-critic-perl
+
+On RPM-based Linux systems (Fedora, Red Hat and CentOS derivatives) as root:
+
+    dnf install --refresh perl-App-cpanminus perl-Dist-Zilla perl-Perl-Critic
+
+On Alpine Linux systems and containers:
+
+    apk update && apk upgrade
+    apk add make git perl perl-utils perl-alien-build perl-class-tiny perl-config-tiny perl-date-manip perl-datetime per
+l-datetime-locale perl-datetime-timezone perl-dbd-csv perl-dbd-sqlite perl-dbi perl-http-date perl-ipc-run perl-list-mor
+eutils perl-list-someutils perl-log-dispatch perl-log-log4perl perl-module-build perl-moose perl-moosex-types perl-names
+pace-autoclean perl-net-ssleay perl-params-validate perl-perlio-utf8_strict perl-pod-parser perl-readonly perl-term-read
+key perl-test-leaktrace perl-test-pod perl-test-warn perl-text-template perl-type-tiny perl-xml-dom perl-yaml
+    cpan -T App::cpanminus Dist::Zilla Perl::Critic </dev/null
+
+On operating systems which don't provide binary packages of App::cpanminus, Dist::Zilla or Perl::Critic, install them fr
+om CPAN with this command:
+
+    cpan -T App::cpanminus Dist::Zilla Perl::Critic </dev/null
+
+=head2 Set up AlertGizmo
+
+TBD
+
 =head1 FUNCTIONS AND METHODS
 
 =head1 LICENSE
