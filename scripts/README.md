@@ -27,7 +27,7 @@ This directory contains miscellaneous helpful scripts I've written.
   - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm) [ExifTool](https://exiftool.org/)
 - *[mk-compr](mk-compr)* is a shell script which makes a subdirectory of compressed images and videos based on current directory contents (derived from jpeg2sc, png2sc and conv-mstdn.sh in this directory)
   - language: Unix shell🐚
-  - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm) [ExifTool](https://exiftool.org/)
+  - dependencies: [NetPBM](https://en.wikipedia.org/wiki/Netpbm) [ExifTool](https://exiftool.org/) [ffmpeg](https://ffmpeg.org/)
 - *[makelog](makelog)* is a shell script which runs make and keeps a log file of its standard output and error. This is useful for any software developer working on a project which uses make for builds.
   - language: Unix shell🐚
   - dependencies: [make](https://www.gnu.org/software/make/)
