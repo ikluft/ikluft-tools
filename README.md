@@ -16,4 +16,6 @@ Each directory in this repository is for its own separate script or tool that I'
 
 [*shuffle*](shuffle) - randomly shuffle lines from a text file (multiple language implementations)
 
-[*space-alerts*](space-alerts) - space-related alert feed monitoring (i.e. geomagnetic storms, asteroid passes) and example template files
+### directories relocated to their own repository
+
+[*space-alerts*](https://github.com/ikluft/AlertGizmo) - (relocated to AlertGizmo repo) space-related alert feed monitoring (i.e. geomagnetic storms, asteroid passes) and example template files

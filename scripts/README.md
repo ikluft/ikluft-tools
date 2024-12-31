@@ -53,7 +53,7 @@ This directory contains miscellaneous helpful scripts I've written.
 
 Scripts moved to other directories within this repo:
 
-- *[pull-nasa-neo.pl](pull-nasa-neo.pl)* moved to [space-alerts](../space-alerts) directory
+- *[pull-nasa-neo.pl](pull-nasa-neo.pl)* moved to [AlertGizmo](https://github.com/ikluft/AlertGizmo) repository
 
 Scripts moved to other GitHub repos:
 
