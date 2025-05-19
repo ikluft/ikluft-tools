@@ -21,6 +21,18 @@ die()
     exit 1
 }
 
+# function: check if destination file exists, return 0 as non-error to skip
+skip_exists()
+{
+    dest=$1
+    if [ -f "$dest" ]
+    then
+        echo "$dest exists - skipped"
+        return 0
+    fi
+    return 1
+}
+
 # function: collect names of JPEG images
 # uses null-delimited strings to read filenames with whitespace
 find_jpeg()
@@ -53,6 +65,7 @@ do_jpeg2sc()
         outfile="$(basename "${infile%.jp?(e)g}-sc.jpg")"
 
         echo "converting $infile to $outfile"
+        skip_exists "$outfile" && continue
         jpegtopnm "$infile" | pnmcrop -sides -right | pnmgamma 1.3 | pamscale --height "${MED_SIZE:-1600}" | pnmtojpeg -quality=90 > "$outfile"
         exiftool -overwrite_original_in_place -tagsFromFile "$infile" "$outfile"
         echo
@@ -69,6 +82,7 @@ do_png2sc()
         outfile="$(basename "${infile%.png}-sc.png")"
 
         echo "converting $infile to $outfile"
+        skip_exists "$outfile" && continue
         pngtopnm "$infile" | pnmcrop -sides -right | pnmgamma 1.3 | pamscale --height "${MED_SIZE:-1600}" | pnmtopng -compression=9 > "$outfile"
         echo
     done
@@ -84,13 +98,14 @@ do_compr_mp4()
         outfile="$(basename "${infile%.mp4}.mstdn.mp4")"
 
         echo "converting $infile to $outfile"
+        skip_exists "$outfile" && continue
         ffmpeg -i "$infile" -y -map 0:v -map 0:a -c:v libx264 -c:a copy -s 1280x720 -fs "40800KB" -vtag avc1 -crf 24 "$outfile" < /dev/null
         echo
     done
 }
 
 # mainline
-mkdir compressed || die "failed to create subdirectory"
+mkdir -p compressed || die "failed to create subdirectory"
 cd compressed || die "failed to enter subdirectory"
 do_jpeg2sc
 do_png2sc
