@@ -9,7 +9,7 @@ then
     if [ -z "$FLATPAK_ID" ]
     then
         # munge path
-        PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin --after "${HOME}/bin:${HOME}/.local/bin")
+        PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin --after "${HOME}/bin:${HOME}/.local/bin:${HOME}/.local/lib/cargo/bin")
 
         # fix PATH for root - recently has not been including /sbin:/usr/sbin
         if [ "$(/usr/bin/id -n -u)" = 'root' ]
