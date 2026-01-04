@@ -1,0 +1,16 @@
+#!/bin/bash
+
+cmdname=$(basename "$0")
+if [ "$cmdname" = "set-screen-blank" ]
+then
+    echo screen blank
+    #env WAYLAND_DISPLAY=wayland-0 wlr-randr --output "HDMI-A-1" --off
+    env WAYLAND_DISPLAY=wayland-0 wlopm --off \*
+elif [ "$cmdname" = "set-screen-wake" ]
+then
+    echo screen wake
+    env WAYLAND_DISPLAY=wayland-0 wlr-randr --output "HDMI-A-1" --preferred
+    env WAYLAND_DISPLAY=wayland-0 wlr-randr --output "HDMI-A-1" --on
+else
+    echo "command name $cmdname not recognized" >&2
+fi
