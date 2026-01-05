@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""
+plane_id_scan - send alert when an airplane transponder is turned on matching a search ID
+This uses the SkySnoop module and ADSB.lol service.
+by Ian Kluft
+January 2026
+"""
+
+import asyncio
+from datetime import datetime
+import json
+from pathlib import Path
+import sys
+import subprocess
+from time import sleep
+from zoneinfo import ZoneInfo
+
+import requests
+from skysnoop import SkySnoop
+from skysnoop.exceptions import (
+    SkySnoopError,
+    APIError,
+    ValidationError,
+    TimeoutError as SnoopTimeoutError,
+)
+from playsound3 import playsound
+
+REQUIRED_FIELDS = [
+    "timezone",
+    "hex_id",
+    "tail-reg",
+    "sound_path",
+    "alert_speak",
+    "ntfy_url_prefix",
+    "ntfy_topic",
+    "ntfy_priority",
+    "ntfy_message",
+]
+ADSB_URL_PREFIX = "https://adsb.lol/?icao="
+
+
+def timestamp(conf_data: dict) -> str:
+    """return current timestamp as string"""
+    return datetime.now(ZoneInfo(conf_data["timezone"])).isoformat(
+        sep=" ", timespec="seconds"
+    )
+
+
+def send_ntfy(conf_data: dict) -> None:
+    """send alert to ntfy server (such as ntfy.sh or self-hosted)"""
+    requests.post(
+        conf_data["ntfy_url_prefix"] + conf_data["ntfy_topic"],
+        data="ADS-B scan detected "
+        + conf_data["hex_id"]
+        + " / "
+        + conf_data["tail-reg"],
+        timeout=90,
+        headers={
+            "Title": conf_data["ntfy_message"],
+            "Priority": conf_data["ntfy_priority"],
+            "Tags": "airplane",
+            "Click": ADSB_URL_PREFIX + conf_data["hex_id"],
+        },
+    )
+
+
+def speak(words: str) -> None:
+    """speech synthesis interface"""
+    subprocess.run(["/usr/bin/speak-ng", words], check=True)
+
+
+def alert_detected(aircraft, conf_data) -> None:
+    """play alert/alarm sound until stopped"""
+    print(
+        "alert "
+        + conf_data["hex_id"]
+        + " "
+        + conf_data["tail-reg"]
+        + " detected at "
+        + timestamp(conf_data)
+    )
+
+    print(repr(aircraft))
+    send_ntfy(conf_data)
+    while True:
+        playsound(conf_data["sound_path"])
+        speak(conf_data["alert_speak"])
+        sleep(10)
+
+
+async def snoop(conf_data: dict):
+    """loop through async scan"""
+    try:
+        async with SkySnoop(backend="openapi") as client:
+            # Query by ICAO hex
+            result = await client.get_by_hex(conf_data["hex_id"])
+            if result.has_results:
+                for aircraft in result.aircraft:
+                    alert_detected(aircraft, conf_data)
+    except ValidationError as e:
+        print(f"Invalid parameter: {e}")
+        sys.exit(1)
+    except SnoopTimeoutError:
+        print("Request timed out at " + timestamp(conf_data))
+    except APIError as e:
+        print(f"API error: {e}")
+        sys.exit(1)
+    except SkySnoopError as e:
+        print(f"SkySnoop Error: {e}")
+        sys.exit(1)
+
+
+def get_config() -> dict:
+    """read configuration data from JSON file specified on command-line argument"""
+    # check arguments
+    if len(sys.argv) <= 1:
+        raise IndexError("missing configuration file argument")
+    config_file = sys.argv[1]
+    config_path = Path(config_file)
+
+    # read JSON data
+    with open(config_path, mode="r", encoding="utf-8") as read_config:
+        conf_data = json.load(read_config)
+
+    # check JSON data
+    if not isinstance(conf_data, dict):
+        raise KeyError("configuration JSON data is not a dictionary")
+    missing_fields: list[str] = []
+    for field in REQUIRED_FIELDS:
+        if field not in conf_data:
+            missing_fields.append(field)
+    if len(missing_fields) > 0:
+        raise AttributeError("missing configuration data: " + ",".join(missing_fields))
+
+    # return configuration
+    return conf_data
+
+
+config_data = get_config()
+print("config: " + repr(config_data))
+print("scan begins " + timestamp(config_data))
+while True:
+    asyncio.run(snoop(config_data))
+    sleep(60)
