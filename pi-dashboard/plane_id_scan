@@ -22,6 +22,7 @@ from skysnoop.exceptions import (
     APIError,
     ValidationError,
     TimeoutError as SnoopTimeoutError,
+    RateLimitError,
 )
 from playsound3 import playsound
 
@@ -97,17 +98,21 @@ async def snoop(conf_data: dict):
             if result.has_results:
                 for aircraft in result.aircraft:
                     alert_detected(aircraft, conf_data)
-    except ValidationError as e:
-        print(f"Invalid parameter: {e}")
-        sys.exit(1)
     except SnoopTimeoutError:
         print("Request timed out at " + timestamp(conf_data))
+        # intentionally different from others - no not re-raise timeout
+    except ValidationError as e:
+        print(f"Invalid parameter: {e} at " + timestamp(conf_data))
+        raise
+    except RateLimitError as e:
+        print(f"Rate limit error: {e} (retry after {e.retry_after}) at " + timestamp(conf_data))
+        raise
     except APIError as e:
-        print(f"API error: {e}")
-        sys.exit(1)
+        print(f"API error: {e} at " + timestamp(conf_data))
+        raise
     except SkySnoopError as e:
-        print(f"SkySnoop Error: {e}")
-        sys.exit(1)
+        print(f"SkySnoop Error: {e} at " + timestamp(conf_data))
+        raise
 
 
 def get_config() -> dict:
@@ -136,9 +141,23 @@ def get_config() -> dict:
     return conf_data
 
 
-config_data = get_config()
-print("config: " + repr(config_data))
-print("scan begins " + timestamp(config_data))
-while True:
-    asyncio.run(snoop(config_data))
-    sleep(60)
+def main() -> int:
+    """main control loop"""
+    config_data = get_config()
+    print("config: " + repr(config_data))
+    print("scan begins " + timestamp(config_data))
+    while True:
+        interval = 60
+        try:
+            asyncio.run(snoop(config_data))
+        except RateLimitError as e:
+            interval = e.retry_after + 30
+            print(f"wait {interval}")
+        except SkySnoopError:
+            interval = 300  # longer wait after error
+            print(f"wait {interval}")
+        sleep(interval)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
