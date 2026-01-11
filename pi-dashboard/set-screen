@@ -1,0 +1,74 @@
+#!/bin/bash
+# set-screen: turn screen on (wake) or off (blank)
+# by Ian Kluft
+# January 2026
+
+# functions
+
+# check if screen is enabled
+is_enabled ()
+{
+    # function behaves like a program so shell logical operators work as expected
+    # that means exit status 0 means OK
+    status="$(wlr-randr --output 'HDMI-A-1' 2>/dev/null | grep -i enabled | sed 's/^.*: *//')"
+    if [ "$status" = "yes" ]
+    then
+        return 0  # OK - enabled
+    fi
+    return 1  # not enabled
+}
+
+# turn screen off
+screen_off ()
+{
+    echo screen off/blank
+    #wlopm --off "*"
+    wlr-randr --output "HDMI-A-1" --off
+}
+
+# turn screen on
+screen_on ()
+{
+    echo screen on/wake
+
+    # run through finicky procedure retrying multiple Wayland settings until they take
+    #wlopm --on "*"
+    count=10
+    while true
+    do
+        wlr-randr --output "HDMI-A-1" --preferred --on || echo retrying...
+        sleep 1
+        is_enabled && break
+        wlr-randr --output "HDMI-A-1" --preferred || echo retrying...
+        sleep 1
+        is_enabled && break
+        wlr-randr --output "HDMI-A-1" --on && break
+        sleep 1
+        is_enabled && break
+        if [ $((count--)) -le 0 ]
+        then
+            echo "failed to turn screen on" >&2
+            exit 1
+        fi
+    done
+    echo OK
+}
+
+# mainline
+
+# make sure WAYLAND_DISPLAY is set - default to screen 0
+if [ -z "$WAYLAND_DISPLAY" ]
+then
+    export WAYLAND_DISPLAY=wayland-0
+fi
+
+cmd="${1:-on}"
+if [ "$cmd" = "blank" ] || [ "$cmd" = "off" ]
+then
+    screen_off
+elif [ "$cmd" = "wake" ] || [ "$cmd" = "on" ]
+then
+    screen_on
+else
+    echo "command name $cmd not recognized" >&2
+fi
