@@ -11,10 +11,21 @@ then
         # munge path
         PATH=$("${PATHFILTER}" --before /usr/bin:"${HOME}"/lib/perl/bin --after "${HOME}/bin:${HOME}/.local/bin:${HOME}/.local/lib/cargo/bin")
 
-        # fix PATH for root - recently has not been including /sbin:/usr/sbin
         if [ "$(/usr/bin/id -n -u)" = 'root' ]
         then
+            # fix PATH for root - recently has not been including /sbin:/usr/sbin
             PATH=$("${PATHFILTER}" --before /sbin:/usr/sbin:/bin)
+        else
+            # fix path for user - include XDG per-user binaries if directory exists
+            sp_cmd="$(which systemd-path)"
+            if [ -n "$sp_cmd" ]
+            then
+                user_bin="$(systemd-path user-binaries)"
+                if [ -n "$user_bin" ] && [ -d "$user_bin" ]
+                then
+                    PATH=$("${PATHFILTER}" --after "$user_bin")
+                fi
+            fi
         fi
         export PATH
     fi
