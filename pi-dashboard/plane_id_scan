@@ -28,14 +28,16 @@ from playsound3 import playsound
 
 REQUIRED_FIELDS = [
     "timezone",
-    "hex_id",
     "tail-reg",
-    "sound_path",
-    "alert_speak",
     "ntfy_url_prefix",
     "ntfy_topic",
     "ntfy_priority",
     "ntfy_message",
+]
+OPTIONAL_FIELDS = [
+    "hex_id",
+    "sound_path",
+    "alert_speak",
 ]
 ADSB_ICAO_PREFIX = "https://adsb.lol/?icao="
 ADSB_REG_PREFIX = "https://adsb.lol/?reg="
@@ -51,10 +53,10 @@ def timestamp(conf_data: dict) -> str:
 def send_ntfy(conf_data: dict) -> None:
     """send alert to ntfy server (such as ntfy.sh or self-hosted)"""
     hex_str = conf_data["hex_id"] + "/" \
-        if len(conf_data["hex_id"]) > 0 \
+        if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
         else ""
     click_str = ADSB_ICAO_PREFIX + conf_data["hex_id"] \
-        if len(conf_data["hex_id"]) > 0 \
+        if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
         else ADSB_REG_PREFIX + conf_data["tail-reg"]
     requests.post(
         conf_data["ntfy_url_prefix"] + conf_data["ntfy_topic"],
@@ -78,7 +80,9 @@ def speak(words: str) -> None:
 
 def alert_detected(aircraft, conf_data) -> None:
     """play alert/alarm sound until stopped"""
-    hex_str = conf_data["hex_id"] + "/" if len(conf_data["hex_id"]) > 0 else ""
+    hex_str = conf_data["hex_id"] + "/" \
+        if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
+        else ""
     print(
         "alert "
         + hex_str
@@ -89,17 +93,19 @@ def alert_detected(aircraft, conf_data) -> None:
 
     print(repr(aircraft))
     send_ntfy(conf_data)
-    while True:
-        playsound(conf_data["sound_path"])
-        speak(conf_data["alert_speak"])
-        sleep(10)
+    if "alert_speak" in conf_data and len(conf_data["alert_speak"]) > 0:
+        while True:
+            if "sound_path" in conf_data and len(conf_data["sound_path"]) > 0:
+                playsound(conf_data["sound_path"])
+            speak(conf_data["alert_speak"])
+            sleep(10)
 
 
 async def snoop(conf_data: dict):
     """loop through async scan"""
     try:
         async with SkySnoop(backend="openapi") as client:
-            if len(conf_data["hex_id"]) > 0:
+            if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0:
                 # Query by ICAO hex, if provided
                 result = await client.get_by_hex(conf_data["hex_id"])
             else:
