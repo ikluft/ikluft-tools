@@ -110,7 +110,7 @@ async def snoop(conf_data: dict):
                     alert_detected(aircraft, conf_data)
     except SnoopTimeoutError:
         print("Request timed out at " + timestamp(conf_data))
-        # intentionally different from others - no not re-raise timeout
+        # intentionally different from others - do not re-raise timeout
     except ValidationError as e:
         print(f"Invalid parameter: {e} at " + timestamp(conf_data))
         raise
