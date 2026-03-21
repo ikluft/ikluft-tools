@@ -37,7 +37,8 @@ REQUIRED_FIELDS = [
     "ntfy_priority",
     "ntfy_message",
 ]
-ADSB_URL_PREFIX = "https://adsb.lol/?icao="
+ADSB_ICAO_PREFIX = "https://adsb.lol/?icao="
+ADSB_REG_PREFIX = "https://adsb.lol/?reg="
 
 
 def timestamp(conf_data: dict) -> str:
@@ -49,18 +50,23 @@ def timestamp(conf_data: dict) -> str:
 
 def send_ntfy(conf_data: dict) -> None:
     """send alert to ntfy server (such as ntfy.sh or self-hosted)"""
+    hex_str = conf_data["hex_id"] + "/" \
+        if len(conf_data["hex_id"]) > 0 \
+        else ""
+    click_str = ADSB_ICAO_PREFIX + conf_data["hex_id"] \
+        if len(conf_data["hex_id"]) > 0 \
+        else ADSB_REG_PREFIX + conf_data["tail-reg"]
     requests.post(
         conf_data["ntfy_url_prefix"] + conf_data["ntfy_topic"],
         data="ADS-B scan detected "
-        + conf_data["hex_id"]
-        + " / "
+        + hex_str
         + conf_data["tail-reg"],
         timeout=90,
         headers={
             "Title": conf_data["ntfy_message"],
             "Priority": conf_data["ntfy_priority"],
             "Tags": "airplane",
-            "Click": ADSB_URL_PREFIX + conf_data["hex_id"],
+            "Click": click_str,
         },
     )
 
@@ -72,10 +78,10 @@ def speak(words: str) -> None:
 
 def alert_detected(aircraft, conf_data) -> None:
     """play alert/alarm sound until stopped"""
+    hex_str = conf_data["hex_id"] + "/" if len(conf_data["hex_id"]) > 0 else ""
     print(
         "alert "
-        + conf_data["hex_id"]
-        + " "
+        + hex_str
         + conf_data["tail-reg"]
         + " detected at "
         + timestamp(conf_data)
@@ -93,8 +99,12 @@ async def snoop(conf_data: dict):
     """loop through async scan"""
     try:
         async with SkySnoop(backend="openapi") as client:
-            # Query by ICAO hex
-            result = await client.get_by_hex(conf_data["hex_id"])
+            if len(conf_data["hex_id"]) > 0:
+                # Query by ICAO hex, if provided
+                result = await client.get_by_hex(conf_data["hex_id"])
+            else:
+                # Query by registration
+                result = await client.get_by_registration(conf_data["tail-reg"])
             if result.has_results:
                 for aircraft in result.aircraft:
                     alert_detected(aircraft, conf_data)
