@@ -28,7 +28,6 @@ from playsound3 import playsound
 
 REQUIRED_FIELDS = [
     "timezone",
-    "tail-reg",
     "ntfy_url_prefix",
     "ntfy_topic",
     "ntfy_priority",
@@ -36,6 +35,8 @@ REQUIRED_FIELDS = [
 ]
 OPTIONAL_FIELDS = [
     "hex_id",
+    "tail-reg",
+    "callsign",
     "sound_path",
     "alert_speak",
 ]
@@ -50,19 +51,25 @@ def timestamp(conf_data: dict) -> str:
     )
 
 
-def send_ntfy(conf_data: dict) -> None:
+def gen_click_str(aircraft, conf_data: dict) -> str:
+    """generate click-link to send with notification"""
+    if "hex_id" in conf_data:
+        return ADSB_ICAO_PREFIX + conf_data["hex_id"]
+    if "tail-reg" in conf_data or "callsign" in conf_data:
+        return ADSB_ICAO_PREFIX + aircraft.hex
+    raise KeyError("missing alert field: need hex_id, tail-reg or callsign")
+
+
+def send_ntfy(aircraft, conf_data: dict) -> None:
     """send alert to ntfy server (such as ntfy.sh or self-hosted)"""
-    hex_str = conf_data["hex_id"] + "/" \
-        if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
-        else ""
-    click_str = ADSB_ICAO_PREFIX + conf_data["hex_id"] \
-        if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
-        else ADSB_REG_PREFIX + conf_data["tail-reg"]
+    click_str = gen_click_str(aircraft, conf_data)
     requests.post(
         conf_data["ntfy_url_prefix"] + conf_data["ntfy_topic"],
-        data="ADS-B scan detected "
-        + hex_str
-        + conf_data["tail-reg"],
+        data="ADS-B scan found"
+        + " hex=" + aircraft.hex.strip()
+        + " reg=" + aircraft.registration.strip()
+        + " call=" + aircraft.callsign.strip()
+        + " type=" + aircraft.type.strip(),
         timeout=90,
         headers={
             "Title": conf_data["ntfy_message"],
@@ -86,13 +93,13 @@ def alert_detected(aircraft, conf_data) -> None:
     print(
         "alert "
         + hex_str
-        + conf_data["tail-reg"]
+        + aircraft.registration
         + " detected at "
         + timestamp(conf_data)
     )
 
     print(repr(aircraft))
-    send_ntfy(conf_data)
+    send_ntfy(aircraft, conf_data)
     if "alert_speak" in conf_data and len(conf_data["alert_speak"]) > 0:
         while True:
             if "sound_path" in conf_data and len(conf_data["sound_path"]) > 0:
@@ -107,12 +114,17 @@ async def snoop(conf_data: dict):
         async with SkySnoop(backend="openapi") as client:
             if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0:
                 # Query by ICAO hex, if provided
-                result = await client.get_by_hex(conf_data["hex_id"])
-            else:
+                response = await client.get_by_hex(conf_data["hex_id"])
+            elif "tail-reg" in conf_data and len(conf_data["tail-reg"]) > 0:
                 # Query by registration
-                result = await client.get_by_registration(conf_data["tail-reg"])
-            if result.has_results:
-                for aircraft in result.aircraft:
+                response = await client.get_by_registration(conf_data["tail-reg"])
+            elif "callsign" in conf_data and len(conf_data["callsign"]) > 0:
+                # query by callsign
+                response = await client.get_by_callsign(conf_data["callsign"])
+            else:
+                raise KeyError("missing search field: need hex_id, tail-reg or callsign")
+            if response.has_results:
+                for aircraft in response.aircraft:
                     alert_detected(aircraft, conf_data)
     except SnoopTimeoutError:
         print("Request timed out at " + timestamp(conf_data))
