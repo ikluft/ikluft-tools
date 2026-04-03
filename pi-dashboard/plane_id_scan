@@ -147,11 +147,20 @@ def get_config() -> dict:
     if not isinstance(conf_data, dict):
         raise KeyError("configuration JSON data is not a dictionary")
     missing_fields: list[str] = []
+    unrecognized_fields: list[str] = []
     for field in REQUIRED_FIELDS:
         if field not in conf_data:
             missing_fields.append(field)
-    if len(missing_fields) > 0:
-        raise AttributeError("missing configuration data: " + ",".join(missing_fields))
+    for key in list(conf_data):
+        if key not in REQUIRED_FIELDS and key not in OPTIONAL_FIELDS:
+            unrecognized_fields.append(key)
+    if len(missing_fields) > 0 or len(unrecognized_fields) > 0:
+        attr_errs: list[str] = []
+        if len(missing_fields > 0):
+            attr_errs.append("missing configuration data: " + ",".join(missing_fields))
+        if len(unrecognized_fields > 0):
+            attr_errs.append("unrecognized fields/possible typos: " + ",".join(unrecognized_fields))
+        raise AttributeError("\n".join(attr_errs))
 
     # return configuration
     return conf_data
