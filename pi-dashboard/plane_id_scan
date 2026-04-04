@@ -56,7 +56,7 @@ def gen_click_str(aircraft, conf_data: dict) -> str:
     if "hex_id" in conf_data:
         return ADSB_ICAO_PREFIX + conf_data["hex_id"]
     if "tail-reg" in conf_data or "callsign" in conf_data:
-        return ADSB_ICAO_PREFIX + aircraft.hex
+        return ADSB_ICAO_PREFIX + aircraft.hex.strip()
     raise KeyError("missing alert field: need hex_id, tail-reg or callsign")
 
 
