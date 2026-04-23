@@ -63,13 +63,13 @@ def gen_click_str(aircraft, conf_data: dict) -> str:
 def send_ntfy(aircraft, conf_data: dict) -> None:
     """send alert to ntfy server (such as ntfy.sh or self-hosted)"""
     click_str = gen_click_str(aircraft, conf_data)
+    hex_str = aircraft.hex.strip() if aircraft.hex is not None else "n/a"
+    reg_str = aircraft.registration.strip() if aircraft.registration is not None else "n/a"
+    callsign_str = aircraft.callsign.strip() if aircraft.callsign is not None else "n/a"
+    actype_str = aircraft.type.strip() if aircraft.type is not None else "n/a"
     requests.post(
         conf_data["ntfy_url_prefix"] + conf_data["ntfy_topic"],
-        data="ADS-B scan found"
-        + " hex=" + aircraft.hex.strip()
-        + " reg=" + aircraft.registration.strip()
-        + " call=" + aircraft.callsign.strip()
-        + " type=" + aircraft.type.strip(),
+        data=f"ADS-B scan found hex={hex_str} reg={reg_str} call={callsign_str} type={actype_str}",
         timeout=90,
         headers={
             "Title": conf_data["ntfy_message"],
