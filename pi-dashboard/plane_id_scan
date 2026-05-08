@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# pylint: disable=line-too-long
 """
 plane_id_scan - send alert when an airplane transponder is turned on matching a search ID
-This uses the SkySnoop module and ADSB.lol service.
+This uses the SkySnoop module and a tar1090-based tracking service (adsb.lol, globe.airplanes.live, etc).
 by Ian Kluft
 January 2026
 """
@@ -40,8 +41,10 @@ OPTIONAL_FIELDS = [
     "sound_path",
     "alert_speak",
 ]
-ADSB_ICAO_PREFIX = "https://adsb.lol/?icao="
-ADSB_REG_PREFIX = "https://adsb.lol/?reg="
+# TRACKING_SITE = "adsb.lol"
+TRACKING_SITE = "globe.airplanes.live"
+ADSB_ICAO_PREFIX = f"https://{TRACKING_SITE}/?icao="
+ADSB_REG_PREFIX = f"https://{TRACKING_SITE}/?reg="
 
 
 def timestamp(conf_data: dict) -> str:
