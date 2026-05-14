@@ -93,10 +93,12 @@ def alert_detected(aircraft, conf_data) -> None:
     hex_str = conf_data["hex_id"] + "/" \
         if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0 \
         else ""
+    reg_str = aircraft.registration.strip() if aircraft.registration is not None else "n/a"
     print(
         "alert "
         + hex_str
-        + aircraft.registration
+        + " "
+        + reg_str
         + " detected at "
         + timestamp(conf_data)
     )
