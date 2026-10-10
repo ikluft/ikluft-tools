@@ -1,7 +1,7 @@
 #!/bin/bash
 # mk-compr - make a subdirectory of compressed images and videos based on current directory contents
 # combines and adapts from my jpeg2sc, png2sc & conv-mstdn scripts
-# Copyright 2010-2024 by Ian Kluft
+# Copyright 2010-2026 by Ian Kluft
 # Redistribution permitted by the author under the conditions of the
 # GNU General Public License Version 3.
 #    https://opensource.org/licenses/GPL-3.0
@@ -54,6 +54,13 @@ find_mp4()
     find -L .. -maxdepth 1 -type f -print0 -name '*.[Mm][Pp]4'
 }
 
+# function: collect names of mp4 videos
+# uses null-delimited strings to read filenames with whitespace
+find_mov()
+{
+    find -L .. -maxdepth 1 -type f -print0 -name '*.[Mm][Oo][Vv]'
+}
+
 # function: scale down JPEG images - adapted from jpeg2sc script
 do_jpeg2sc()
 {
@@ -104,9 +111,26 @@ do_compr_mp4()
     done
 }
 
+# function: compress MOV videos - adapted from do_compr_mp4() above
+do_compr_mov()
+{
+    find_mov | while read -r -d "" infile
+    do
+        [ -f "$infile" ] || continue
+        [[ "$infile" == *.mov ]] || continue
+        outfile="$(basename "${infile%.mov}.mstdn.mov")"
+
+        echo "converting $infile to $outfile"
+        skip_exists "$outfile" && continue
+        ffmpeg -i "$infile" -y -map 0:v -map 0:a -c:v libx264 -c:a copy -s 1280x720 -fs "40800KB" -vtag avc1 -crf 24 "$outfile" < /dev/null
+        echo
+    done
+}
+
 # mainline
 mkdir -p compressed || die "failed to create subdirectory"
 cd compressed || die "failed to enter subdirectory"
 do_jpeg2sc
 do_png2sc
 do_compr_mp4
+do_compr_mov
