@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# read date from command line or default to today's date
+if [ -n "$1" ]
+then
+	date="$1"
+else
+	date=$(/usr/bin/date +'%Y%m%d')
+fi
+
+# pull files for date
+files="$(/usr/bin/adb shell find /sdcard/DCIM -name '*_'$date'_*')" || {
+	echo file list failed
+	exit 1
+}
+gotfiles=""
+failfiles=""
+for file in $files
+do
+	if /usr/bin/adb pull -a -z any "$file" .
+	then
+		gotfiles+=" $file"
+	else
+		failfiles+=" $file"
+	fi
+done
+if [ -n "$gotfiles" ]
+then
+	echo pulled $gotfiles
+fi
+if [ -n "$failfiles" ]
+then
+	echo failed: $failfiles
+fi
