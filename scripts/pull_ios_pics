@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""
+pull_ios_pics
+pull photos and images from an iOS device to a Linux/BSD/POSIX system
+by Ian Kluft
+"""
+
+import configparser
+from datetime import date
+import optparse
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+from xdg_base_dirs import xdg_config_dirs
+
+# constants
+PROGNAME = "ios_pull_pics"
+
+
+# find and read configuration file
+def read_config() -> configparser.ConfigParser:
+    """
+    Read configuration data from one or more *.conf files searched in XDG Base config directories.
+    If more than one conf file exists in the search path, contents of all are merged.
+    Conflicting attributes are overwritten by the last conf file to provide the same attribute.
+    """
+    conf = configparser.ConfigParser(allow_unnamed_section=True)
+    for conf_dir in xdg_config_dirs():
+        conf_path = Path(conf_dir + '/' + PROGNAME + '.conf')
+        if conf_path.exists() and conf_path.is_file():
+            conf.read(conf_path)
+    return conf
+
+
+# make dict for pull operation parameters
+param = {}
+
+# get default configuration from file if available
+config = read_config()
+
+# get command-line arguments
+parser = optparse.OptionParser()
+parser.add_option('--date', action="store", type="string")
+parser.add_option('--desc', '--description', action="store", type="string")
+parser.add_option('--dir', '--directory', action="store", type="string")
+parser.add_option('--move', action="store_true")
+(options, args) = parser.parse_args()
+
+# verify date argument format
+if 'date' in options:  # get date from options
+    if not re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", options['date']):
+        raise AttributeError("date " + options['date'] + " is not in ISO 8601 yyyy-mm-dd format")
+    param['date'] = options['date']
+if 'date' not in param:  # default date is today
+    param['date'] = str(date.today())
+
+# verify destination directory argument (directory in which to create the new date-based photo/image directory)
+if 'dir' in options:
+    param['dir'] = Path(options['dir'])
+if 'dir' not in param:  # default destination is ~/Pictures if it exists, otherwise current directory
+    pictures_dir = Path.home() / "Pictures"
+    if pictures_dir.exists() and pictures_dir.is_dir():
+        param['dir'] = pictures_dir
+    else:
+        param['dir'] = Path.cwd()
+if not param['dir'].exists():
+    raise FileNotFoundError("destination " + param['dir'] + " does not exist")
+if not param['dir'].is_dir():
+    raise NotADirectoryError("destination " + param['dir'] + " is not a directory")
+
+# format description for use in file name
+if 'desc' in options:
+    desc_str = options['desc'].casefold()
+    re.sub(r"(\s\s+)", "-", desc_str)
+    param['suffix'] = desc_str
+
+# make destination directory
+date_dir = param['dir'] / param['date'] + (("-" + param['suffix']) if 'suffix' in param else "")
+date_dir.mkdir(mode=0o700, exist_ok=True)
+
+# perform operation with a temporary directory
+with tempfile.TemporaryDirectory(prefix='ios_xfer') as tmpdirname:
+    udid = subprocess.run(['idevice_id', '-l'], capture_output=True, check=True, text=True)
+    subprocess.run(['ifuse', '--udid', udid, tmpdirname], check=True)
+
+    # TODO
+
+    subprocess.run(['umount', tmpdirname], check=True)
