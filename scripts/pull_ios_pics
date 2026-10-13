@@ -6,16 +6,25 @@ by Ian Kluft
 """
 
 import configparser
-from datetime import date
+from datetime import date, datetime
 import optparse
+import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 from xdg_base_dirs import xdg_config_dirs
 
 # constants
 PROGNAME = "ios_pull_pics"
+
+
+# print debug statements if debugging is enabled
+def debug(s: str) -> None:
+    """print debug statements if debugging is enabled"""
+    if options.debug:
+        print(s, file=sys.stderr)
 
 
 # find and read configuration file
@@ -27,11 +36,51 @@ def read_config() -> configparser.ConfigParser:
     """
     conf = configparser.ConfigParser(allow_unnamed_section=True)
     for conf_dir in xdg_config_dirs():
-        conf_path = Path(conf_dir + '/' + PROGNAME + '.conf')
+        conf_path = Path(conf_dir) / (PROGNAME + '.conf')
         if conf_path.exists() and conf_path.is_file():
             conf.read(conf_path)
     return conf
 
+
+# mount iOS filesystem
+def mount_ios(mnt_point: str) -> None:
+    """mount an iOS filesystem with FUSE at a specified mount point directory"""
+    result = subprocess.run(['idevice_id', '-l'], capture_output=True, check=True, text=True)
+    udid = result.stdout.rstrip("\r\n")
+    subprocess.run(['ifuse', '--udid', udid, mnt_point], check=True)
+
+
+# unmount iOS filesystem
+def unmount_ios(mnt_point: str) -> None:
+    """unmount iOS filesystem at a specified mount point directory"""
+    os.sync()
+    subprocess.run(['fusermount', '-u', mnt_point], check=True)
+    os.sync()
+
+
+def get_file_dt(fpath: Path) -> datetime | None:
+    """
+    get file date from a given path
+    use available metadata as available from ctime, birthtime, mtime or atime in decreasing priority
+    """
+    file_stat = fpath.stat()
+    debug(f"stat {fpath} -> {file_stat}")
+    filedt = None
+    for key in ['st_ctime', 'st_birthtime', 'st_mtime']:
+        if hasattr(file_stat, key):
+            filedt = datetime.fromtimestamp(getattr(file_stat, key))
+    if filedt is None:
+        debug("get_file_dt(" + str(fpath) + ") -> None")
+        return None
+    fileiso = filedt.date().isoformat()
+    debug("get_file_dt(" + str(fpath) + ") -> " + fileiso)
+    return fileiso
+
+
+# POSIX system required
+if os.name != 'posix':
+    print("This program is made for POSIX systems only.")
+    sys.exit(1)
 
 # make dict for pull operation parameters
 param = {}
@@ -45,19 +94,21 @@ parser.add_option('--date', action="store", type="string")
 parser.add_option('--desc', '--description', action="store", type="string")
 parser.add_option('--dir', '--directory', action="store", type="string")
 parser.add_option('--move', action="store_true")
+parser.add_option('--debug', action="store_true")
 (options, args) = parser.parse_args()
+debug(f"options: {options}")
 
 # verify date argument format
-if 'date' in options:  # get date from options
-    if not re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", options['date']):
-        raise AttributeError("date " + options['date'] + " is not in ISO 8601 yyyy-mm-dd format")
-    param['date'] = options['date']
+if options.date is not None:  # get date from options
+    if not re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", options.date):
+        raise AttributeError("date " + options.date + " is not in ISO 8601 yyyy-mm-dd format")
+    param['date'] = options.date
 if 'date' not in param:  # default date is today
     param['date'] = str(date.today())
 
 # verify destination directory argument (directory in which to create the new date-based photo/image directory)
-if 'dir' in options:
-    param['dir'] = Path(options['dir'])
+if options.dir is not None:
+    param['dir'] = Path(options.dir)
 if 'dir' not in param:  # default destination is ~/Pictures if it exists, otherwise current directory
     pictures_dir = Path.home() / "Pictures"
     if pictures_dir.exists() and pictures_dir.is_dir():
@@ -70,20 +121,46 @@ if not param['dir'].is_dir():
     raise NotADirectoryError("destination " + param['dir'] + " is not a directory")
 
 # format description for use in file name
-if 'desc' in options:
-    desc_str = options['desc'].casefold()
-    re.sub(r"(\s\s+)", "-", desc_str)
-    param['suffix'] = desc_str
+if options.desc is not None:
+    desc_str = options.desc.casefold()
+    desc_sub = re.sub(r"[\W_]+", "-", desc_str)
+    param['suffix'] = desc_sub
 
 # make destination directory
-date_dir = param['dir'] / param['date'] + (("-" + param['suffix']) if 'suffix' in param else "")
+date_dir = param['dir'] / (param['date'] + (("-" + param['suffix']) if 'suffix' in param else ""))
+debug("destination: " + str(date_dir))
 date_dir.mkdir(mode=0o700, exist_ok=True)
 
 # perform operation with a temporary directory
-with tempfile.TemporaryDirectory(prefix='ios_xfer') as tmpdirname:
-    udid = subprocess.run(['idevice_id', '-l'], capture_output=True, check=True, text=True)
-    subprocess.run(['ifuse', '--udid', udid, tmpdirname], check=True)
+with tempfile.TemporaryDirectory(prefix='ios_xfer_') as tmpdirname:
+    # mount filesystem
+    debug(f"mount {tmpdirname} for transfer")
+    mount_ios(tmpdirname)
 
-    # TODO
-
-    subprocess.run(['umount', tmpdirname], check=True)
+    # copy files (or move them if move flag was specified)
+    try:
+        for path_root, dirs, files in (Path(tmpdirname) / "DCIM").walk(top_down=True, follow_symlinks=True):
+            debug(f"path={path_root} dirs({dirs}) files({files})")
+            for filename in files:
+                origin_path = path_root / filename
+                dest_path = date_dir / filename
+                origin_date = get_file_dt(origin_path)
+                if origin_date is None:
+                    continue
+                if origin_date == param['date']:
+                    if options.move:
+                        debug("move " + str(origin_path) + " to " + str(dest_path))
+                        origin_path.move(dest_path)
+                    else:
+                        debug("copy " + str(origin_path) + " to " + str(dest_path))
+                        origin_path.copy(dest_path, follow_symlinks=True, preserve_metadata=True)
+                else:
+                    print(str(origin_path) + f" date out of range: {origin_date}", file=sys.stderr)
+    except OSError as e:
+        sys.exit("exit due to OS exception: " + str(type(e)) + " ".join(e.args))
+    except subprocess.SubprocessError as e:
+        sys.exit("exit due to subprocess exception: " + str(type(e)) + " ".join(e.args))
+    finally:
+        # unmount filesystem after transfer or error
+        debug(f"unmount {tmpdirname} after transfer")
+        unmount_ios(tmpdirname)
