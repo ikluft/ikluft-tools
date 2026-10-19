@@ -143,6 +143,9 @@ async def snoop(conf_data: dict):
     except APIError as e:
         print(f"API error: {e} at " + timestamp(conf_data))
         raise
+    except KeyboardInterrupt as e:
+        print(f"keyboard interrupt {e} at " + timestamp(conf_data))
+        sys.exit(0)
     except SkySnoopError as e:
         print(f"SkySnoop Error: {e} at " + timestamp(conf_data))
         raise
@@ -188,16 +191,23 @@ def main() -> int:
     config_data = get_config()
     print("config: " + repr(config_data))
     print("scan begins " + timestamp(config_data))
+    long_interval = 300
     while True:
         interval = 60
         try:
             asyncio.run(snoop(config_data))
         except RateLimitError as e:
-            interval = e.retry_after + 30
-            print(f"wait {interval}")
+            interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
+            long_interval += 300  # increasing back-off with repeated rate limiting
+            print(f"wait {interval} at " + timestamp(config_data))
         except SkySnoopError:
-            interval = 300  # longer wait after error
-            print(f"wait {interval}")
+            interval = long_interval  # longer wait without additional back-off after error
+            print(f"wait {interval} at " + timestamp(config_data))
+        except KeyboardInterrupt:
+            print("keyboard interrupt at " + timestamp(config_data))
+            sys.exit(0)
+        else:
+            long_interval = 300
         sleep(interval)
 
 
