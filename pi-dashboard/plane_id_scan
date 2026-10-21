@@ -41,6 +41,13 @@ OPTIONAL_FIELDS = [
     "sound_path",
     "alert_speak",
 ]
+
+# query retry interval management
+SHORT_INTERVAL_BASE = 90
+SHORT_INCREMENT = 30
+LONG_INTERVAL_BASE = 300
+LONG_INCREMENT = 300
+
 # TRACKING_SITE = "adsb.lol"
 TRACKING_SITE = "globe.airplanes.live"
 ADSB_ICAO_PREFIX = f"https://{TRACKING_SITE}/?icao="
@@ -52,6 +59,29 @@ def timestamp(conf_data: dict) -> str:
     return datetime.now(ZoneInfo(conf_data["timezone"])).isoformat(
         sep=" ", timespec="seconds"
     )
+
+
+def interval_str(sec: int | None) -> str:
+    """compute readable interval string from integer seconds"""
+    if sec is None:
+        return "None"
+    if sec < 0:
+        sec = 0
+        return "0sec"
+    remainder = int(sec)
+    out_hr = int(remainder / 3600)
+    remainder -= 3600 * out_hr
+    out_min = int(remainder / 60)
+    remainder -= 60 * out_min
+    out_sec = remainder % 60
+    result = []
+    if out_hr > 0:
+        result.append(f"{out_hr}hr")
+    if out_min > 0:
+        result.append(f"{out_min}min")
+    if out_sec > 0:
+        result.append(f"{sec}sec")
+    return " ".join(result)
 
 
 def gen_click_str(aircraft, conf_data: dict) -> str:
@@ -138,7 +168,7 @@ async def snoop(conf_data: dict):
         print(f"Invalid parameter: {e} at " + timestamp(conf_data))
         raise
     except RateLimitError as e:
-        print(f"Rate limit error: {e} (retry after {e.retry_after}) at " + timestamp(conf_data))
+        print("Rate limit error: retry after " + interval_str(e.retry_after) + " at " + timestamp(conf_data))
         raise
     except APIError as e:
         print(f"API error: {e} at " + timestamp(conf_data))
@@ -191,24 +221,34 @@ def main() -> int:
     config_data = get_config()
     print("config: " + repr(config_data))
     print("scan begins " + timestamp(config_data))
-    long_interval = 300
+    long_interval = LONG_INTERVAL_BASE
+    short_interval = SHORT_INTERVAL_BASE
     while True:
-        interval = 60
+        interval = short_interval
         try:
             asyncio.run(snoop(config_data))
         except RateLimitError as e:
             interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
-            long_interval += 300  # increasing back-off with repeated rate limiting
-            print(f"wait {interval} at " + timestamp(config_data))
+
+            # increasing back-off with repeated rate limiting
+            long_interval += LONG_INCREMENT
+            short_interval += SHORT_INCREMENT
+
+            print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except SkySnoopError:
             interval = long_interval  # longer wait without additional back-off after error
-            print(f"wait {interval} at " + timestamp(config_data))
+            print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except KeyboardInterrupt:
             print("keyboard interrupt at " + timestamp(config_data))
             sys.exit(0)
         else:
-            long_interval = 300
-        sleep(interval)
+            long_interval = LONG_INTERVAL_BASE
+
+        try:
+            sleep(interval)
+        except KeyboardInterrupt:
+            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data))
+            sys.exit(0)
 
 
 if __name__ == '__main__':
