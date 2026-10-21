@@ -44,8 +44,10 @@ OPTIONAL_FIELDS = [
 
 # query retry interval management
 SHORT_INTERVAL_BASE = 90
+SHORT_INTERVAL_MAX = 300
 SHORT_INCREMENT = 30
 LONG_INTERVAL_BASE = 300
+LONG_INTERVAL_MAX = 1800
 LONG_INCREMENT = 300
 
 # TRACKING_SITE = "adsb.lol"
@@ -231,8 +233,10 @@ def main() -> int:
             interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
 
             # increasing back-off with repeated rate limiting
-            long_interval += LONG_INCREMENT
-            short_interval += SHORT_INCREMENT
+            if long_interval < LONG_INTERVAL_MAX:
+                long_interval += LONG_INCREMENT
+            if short_interval < SHORT_INTERVAL_MAX:
+                short_interval += SHORT_INCREMENT
 
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except SkySnoopError:
@@ -243,6 +247,8 @@ def main() -> int:
             sys.exit(0)
         else:
             long_interval = LONG_INTERVAL_BASE
+            if short_interval > SHORT_INTERVAL_BASE:
+                short_interval -= SHORT_INCREMENT
 
         try:
             sleep(interval)
