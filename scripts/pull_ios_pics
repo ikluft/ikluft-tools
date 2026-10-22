@@ -149,13 +149,13 @@ with tempfile.TemporaryDirectory(prefix='ios_xfer_') as tmpdirname:
                     continue
                 if origin_date == param['date']:
                     if options.move:
-                        debug("move " + str(origin_path) + " to " + str(dest_path))
+                        print("moving " + str(origin_path) + " to " + str(dest_path))
                         origin_path.move(dest_path)
                     else:
-                        debug("copy " + str(origin_path) + " to " + str(dest_path))
+                        print("copying " + str(origin_path) + " to " + str(dest_path))
                         origin_path.copy(dest_path, follow_symlinks=True, preserve_metadata=True)
                 else:
-                    print(str(origin_path) + f" date out of range: {origin_date}", file=sys.stderr)
+                    debug(str(origin_path) + f" date out of range: {origin_date}")
     except OSError as e:
         sys.exit("exit due to OS exception: " + str(type(e)) + " ".join(e.args))
     except subprocess.SubprocessError as e:
