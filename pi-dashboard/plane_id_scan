@@ -177,7 +177,7 @@ async def snoop(conf_data: dict):
         raise
     except KeyboardInterrupt as e:
         print(f"keyboard interrupt {e} at " + timestamp(conf_data))
-        sys.exit(0)
+        raise
     except SkySnoopError as e:
         print(f"SkySnoop Error: {e} at " + timestamp(conf_data))
         raise
@@ -218,6 +218,15 @@ def get_config() -> dict:
     return conf_data
 
 
+def totals_str(totals: dict) -> str:
+    """generate a readable string with summary of total times in each type of waiting"""
+    result = []
+    for wtype in ["sleep", "ratelimit", "overload", "error", "n/a"]:
+        if wtype in totals:
+            result.append(wtype + " = " + interval_str(totals[wtype]))
+    return ", ".join(result)
+
+
 def main() -> int:
     """main control loop"""
     config_data = get_config()
@@ -225,12 +234,15 @@ def main() -> int:
     print("scan begins " + timestamp(config_data))
     long_interval = LONG_INTERVAL_BASE
     short_interval = SHORT_INTERVAL_BASE
+    wait_totals = {}
     while True:
         interval = short_interval
+        wait_type = "n/a"
         try:
             asyncio.run(snoop(config_data))
         except RateLimitError as e:
             interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
+            wait_type = "ratelimit" if e.retry_after is not None else "overload"
 
             # increasing back-off with repeated rate limiting
             if long_interval < LONG_INTERVAL_MAX:
@@ -241,19 +253,29 @@ def main() -> int:
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except SkySnoopError:
             interval = long_interval  # longer wait without additional back-off after error
+            wait_type = "error"
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except KeyboardInterrupt:
-            print("keyboard interrupt at " + timestamp(config_data))
+            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
+                  + " [total time: " + totals_str(wait_totals) + "]")
             sys.exit(0)
         else:
             long_interval = LONG_INTERVAL_BASE
             if short_interval > SHORT_INTERVAL_BASE:
                 short_interval -= SHORT_INCREMENT
+            wait_type = "sleep"
 
+        if wait_type not in wait_totals:
+            wait_totals[wait_type] = 0
+        wait_totals[wait_type] += interval
+        if wait_type != "sleep":
+            print("wait(" + wait_type + ")" + interval_str(interval) + " at " + timestamp(config_data)
+                  + " [time: " + totals_str(wait_totals) + "]")
         try:
             sleep(interval)
         except KeyboardInterrupt:
-            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data))
+            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
+                  + " [total time: " + totals_str(wait_totals) + "]")
             sys.exit(0)
 
 
