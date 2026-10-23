@@ -269,7 +269,7 @@ def main() -> int:
             wait_totals[wait_type] = 0
         wait_totals[wait_type] += interval
         if wait_type != "sleep":
-            print("wait(" + wait_type + ")" + interval_str(interval) + " at " + timestamp(config_data)
+            print("wait(" + wait_type + ") " + interval_str(interval) + " at " + timestamp(config_data)
                   + " [time: " + totals_str(wait_totals) + "]")
         try:
             sleep(interval)
