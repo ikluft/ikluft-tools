@@ -75,14 +75,14 @@ def interval_str(sec: int | None) -> str:
     remainder -= 3600 * out_hr
     out_min = int(remainder / 60)
     remainder -= 60 * out_min
-    out_sec = remainder % 60
+    out_sec = remainder
     result = []
     if out_hr > 0:
         result.append(f"{out_hr}hr")
     if out_min > 0:
         result.append(f"{out_min}min")
     if out_sec > 0:
-        result.append(f"{sec}sec")
+        result.append(f"{out_sec}sec")
     return " ".join(result)
 
 
@@ -257,7 +257,7 @@ def main() -> int:
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
         except KeyboardInterrupt:
             print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
-                  + " [total time: " + totals_str(wait_totals) + "]")
+                  + " [totals: " + totals_str(wait_totals) + "]")
             sys.exit(0)
         else:
             long_interval = LONG_INTERVAL_BASE
@@ -270,12 +270,12 @@ def main() -> int:
         wait_totals[wait_type] += interval
         if wait_type != "sleep":
             print("wait(" + wait_type + ") " + interval_str(interval) + " at " + timestamp(config_data)
-                  + " [time: " + totals_str(wait_totals) + "]")
+                  + " [totals: " + totals_str(wait_totals) + "]")
         try:
             sleep(interval)
         except KeyboardInterrupt:
             print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
-                  + " [total time: " + totals_str(wait_totals) + "]")
+                  + " [totals: " + totals_str(wait_totals) + "]")
             sys.exit(0)
 
 
