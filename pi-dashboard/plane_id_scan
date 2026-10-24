@@ -147,6 +147,7 @@ def alert_detected(aircraft, conf_data) -> None:
 
 async def snoop(conf_data: dict):
     """loop through async scan"""
+    # give query to SkySnoop, get response
     try:
         async with SkySnoop(backend="openapi") as client:
             if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0:
@@ -163,9 +164,13 @@ async def snoop(conf_data: dict):
             if response.has_results:
                 for aircraft in response.aircraft:
                     alert_detected(aircraft, conf_data)
+
+    # timeout is handled differently from other exceptions and not re-raised
     except SnoopTimeoutError:
         print("Request timed out at " + timestamp(conf_data))
-        # intentionally different from others - do not re-raise timeout
+        # intentionally different - do not re-raise timeout
+
+    # most exceptions are re-raised to send them back to main()
     except ValidationError as e:
         print(f"Invalid parameter: {e} at " + timestamp(conf_data))
         raise
@@ -232,14 +237,19 @@ def main() -> int:
     config_data = get_config()
     print("config: " + repr(config_data))
     print("scan begins " + timestamp(config_data))
+
+    # main loop with retry and error handling
     long_interval = LONG_INTERVAL_BASE
     short_interval = SHORT_INTERVAL_BASE
     wait_totals = {}
     while True:
-        interval = short_interval
+        interval = short_interval  # set wait interval to short time unless overridden later by rate limit or error
         wait_type = "n/a"
         try:
+            # call snoop() to run SkySnoop request and get response or error
             asyncio.run(snoop(config_data))
+
+        # handle rate limiting
         except RateLimitError as e:
             interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
             wait_type = "ratelimit" if e.retry_after is not None else "overload"
@@ -251,32 +261,43 @@ def main() -> int:
                 short_interval += SHORT_INCREMENT
 
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
+
+        # catch all errors from the SkySnoop package
         except SkySnoopError:
             interval = long_interval  # longer wait without additional back-off after error
             wait_type = "error"
             print("wait " + interval_str(interval) + " at " + timestamp(config_data))
+
+        # exit on keyboard interrupt (CTRL-C), reporting stats
         except KeyboardInterrupt:
-            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
-                  + " [totals: " + totals_str(wait_totals) + "]")
-            sys.exit(0)
+            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data))
+            print("[totals: " + totals_str(wait_totals) + "]")
+            return 0
+
+        # when no errors occur, decrement short interval toward base level and reset long interval
         else:
             long_interval = LONG_INTERVAL_BASE
             if short_interval > SHORT_INTERVAL_BASE:
                 short_interval -= SHORT_INCREMENT
             wait_type = "sleep"
 
+        # save wait time stats
         if wait_type not in wait_totals:
             wait_totals[wait_type] = 0
         wait_totals[wait_type] += interval
         if wait_type != "sleep":
             print("wait(" + wait_type + ") " + interval_str(interval) + " at " + timestamp(config_data)
                   + " [totals: " + totals_str(wait_totals) + "]")
+
+        # perform sleep for the computed interval
         try:
             sleep(interval)
+
+        # exit on keyboard interrupt (CTRL-C), reporting stats
         except KeyboardInterrupt:
-            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data)
-                  + " [totals: " + totals_str(wait_totals) + "]")
-            sys.exit(0)
+            print("keyboard interrupt during sleep " + interval_str(interval) + " at " + timestamp(config_data))
+            print("[totals: " + totals_str(wait_totals) + "]")
+            return 0
 
 
 if __name__ == '__main__':
