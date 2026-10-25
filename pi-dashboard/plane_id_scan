@@ -251,7 +251,7 @@ def main() -> int:
 
         # handle rate limiting
         except RateLimitError as e:
-            interval = (e.retry_after + 30) if e.retry_after is not None else long_interval
+            interval = (e.retry_after + SHORT_INCREMENT) if e.retry_after is not None else long_interval
             wait_type = "ratelimit" if e.retry_after is not None else "overload"
 
             # increasing back-off with repeated rate limiting
