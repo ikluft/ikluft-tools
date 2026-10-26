@@ -18,7 +18,7 @@ from time import sleep
 from zoneinfo import ZoneInfo
 
 import requests
-from skysnoop import SkySnoop
+from skysnoop import SkySnoop, SkyData
 from skysnoop.exceptions import (
     SkySnoopError,
     APIError,
@@ -39,6 +39,10 @@ OPTIONAL_FIELDS = [
     "hex_id",
     "tail-reg",
     "callsign",
+    "lat",
+    "lon",
+    "radius",
+    "condition",
     "sound_path",
     "alert_speak",
 ]
@@ -57,11 +61,23 @@ ADSB_ICAO_PREFIX = f"https://{TRACKING_SITE}/?icao="
 ADSB_REG_PREFIX = f"https://{TRACKING_SITE}/?reg="
 
 
-def timestamp(conf_data: dict) -> str:
+def timestamp(conf_data: dict | list(dict)) -> str:
     """return current timestamp as string"""
-    return datetime.now(ZoneInfo(conf_data["timezone"])).isoformat(
-        sep=" ", timespec="seconds"
-    )
+    if isinstance(conf_data, dict):
+        return datetime.now(ZoneInfo(conf_data["timezone"])).isoformat(
+            sep=" ", timespec="seconds"
+        )
+
+    # find first timestamp in list of dict (TODO: global timezone config)
+    if isinstance(conf_data, list):
+        for query in conf_data:
+            if 'timezone' in query:
+                return datetime.now(ZoneInfo(query["timezone"])).isoformat(
+                    sep=" ", timespec="seconds"
+                )
+
+    # reject parameter data type if we get here
+    raise TypeError('timestamp(conf_data) received conf_data of type ' + str(conf_data.__class__))
 
 
 def interval_str(sec: int | None) -> str:
@@ -146,25 +162,48 @@ def alert_detected(aircraft, conf_data) -> None:
             sleep(10)
 
 
-async def snoop(conf_data: dict):
+def query_has(query: dict, field: str | list(str)) -> bool:
+    """check if a query defined in a dictionary has one or more named fields which are nonempty"""
+    if isinstance(field, str):
+        return str in query and len(query[str]) > 0
+    if isinstance(field, list):
+        for fname in field:
+            if fname not in query or len(query[fname]) == 0:
+                return False
+        return True
+    raise TypeError('query_has(dict, field) received field of type ' + str(field.__class__))
+
+
+def process_response(query: dict, resp: SkyData) -> None:
+    """process SkyData response from SkySnoop"""
+    if resp.has_results:
+        for aircraft in resp.aircraft:
+            if "condition" in query:
+                pass  # process response sifting for conditions found in query (TODO)
+            alert_detected(aircraft, query)
+
+
+async def snoop(conf_data: list(dict)):
     """loop through async scan"""
     # give query to SkySnoop, get response
     try:
         async with SkySnoop(backend="openapi") as client:
-            if "hex_id" in conf_data and len(conf_data["hex_id"]) > 0:
-                # Query by ICAO hex, if provided
-                response = await client.get_by_hex(conf_data["hex_id"])
-            elif "tail-reg" in conf_data and len(conf_data["tail-reg"]) > 0:
-                # Query by registration
-                response = await client.get_by_registration(conf_data["tail-reg"])
-            elif "callsign" in conf_data and len(conf_data["callsign"]) > 0:
-                # query by callsign
-                response = await client.get_by_callsign(conf_data["callsign"])
-            else:
-                raise KeyError("missing search field: need hex_id, tail-reg or callsign")
-            if response.has_results:
-                for aircraft in response.aircraft:
-                    alert_detected(aircraft, conf_data)
+            for query in conf_data:
+                if query_has(query, "hex_id"):
+                    # Query by ICAO hex, if provided
+                    response = await client.get_by_hex(query["hex_id"])
+                elif query_has(query, "tail-reg"):
+                    # Query by registration
+                    response = await client.get_by_registration(query["tail-reg"])
+                elif query_has(query, "callsign"):
+                    # query by callsign
+                    response = await client.get_by_callsign(query["callsign"])
+                elif query_has(query, ["lat", "lon", "radius"]):
+                    # query by callsign
+                    response = await client.get_in_circle(lat=query["lat"], lon=query["lon"], radius=query["radius"])
+                else:
+                    raise KeyError("missing search field: need hex_id, tail-reg or callsign")
+                process_response(query, response)
 
     # timeout is handled differently from other exceptions and not re-raised
     except SnoopTimeoutError:
@@ -189,7 +228,7 @@ async def snoop(conf_data: dict):
         raise
 
 
-def get_config() -> dict:
+def get_config() -> list[dict]:
     """read configuration data from JSON file specified on command-line argument"""
     # check arguments
     if len(sys.argv) <= 1:
@@ -199,17 +238,17 @@ def get_config() -> dict:
 
     # read JSON data
     with open(config_path, mode="r", encoding="utf-8") as read_config:
-        conf_data = json.load(read_config)
+        query_data = json.load(read_config)
 
     # check JSON data
-    if not isinstance(conf_data, dict):
+    if not isinstance(query_data, dict):
         raise KeyError("configuration JSON data is not a dictionary")
     missing_fields: list[str] = []
     unrecognized_fields: list[str] = []
     for field in REQUIRED_FIELDS:
-        if field not in conf_data:
+        if field not in query_data:
             missing_fields.append(field)
-    for key in list(conf_data):
+    for key in list(query_data):
         if key not in REQUIRED_FIELDS and key not in OPTIONAL_FIELDS:
             unrecognized_fields.append(key)
     if len(missing_fields) > 0 or len(unrecognized_fields) > 0:
@@ -221,7 +260,7 @@ def get_config() -> dict:
         raise AttributeError("\n".join(attr_errs))
 
     # return configuration
-    return conf_data
+    return [query_data]
 
 
 def totals_str(totals: dict) -> str:
