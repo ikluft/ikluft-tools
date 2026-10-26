@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # pylint: disable=line-too-long
 """
-plane_id_scan - send alert when an airplane transponder is turned on matching a search ID
-This uses the SkySnoop module and a tar1090-based tracking service (adsb.lol, globe.airplanes.live, etc).
+adsb_plane_scan - send alert for airplane transponders matching multiple ADS-B search criteria
+This was originally just alerting when a transponder was turned on matching a search ID.
+This uses the SkySnoop module and a tar1090-based tracking service
 by Ian Kluft
 January 2026
 """
