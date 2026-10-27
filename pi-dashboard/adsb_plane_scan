@@ -164,14 +164,13 @@ def alert_detected(aircraft, conf_data) -> None:
 
 def query_has(query: dict, field: str | list(str)) -> bool:
     """check if a query defined in a dictionary has one or more named fields which are nonempty"""
-    if isinstance(field, str):
-        return str in query and len(query[str]) > 0
-    if isinstance(field, list):
-        for fname in field:
-            if fname not in query or len(query[fname]) == 0:
-                return False
-        return True
-    raise TypeError('query_has(dict, field) received field of type ' + str(field.__class__))
+    if not isinstance(field, str) and not isinstance(field, list):
+        raise TypeError('query_has(dict, field) received field of type ' + str(field.__class__))
+    fields = field if isinstance(field, list) else [field]
+    for fname in fields:
+        if (fname not in query) or (len(query[fname]) == 0):
+            return False
+    return True
 
 
 def process_response(query: dict, resp: SkyData) -> None:
@@ -202,7 +201,8 @@ async def snoop(conf_data: list(dict)):
                     # query by callsign
                     response = await client.get_in_circle(lat=query["lat"], lon=query["lon"], radius=query["radius"])
                 else:
-                    raise KeyError("missing search field: need hex_id, tail-reg or callsign")
+                    raise KeyError("missing search field (hex_id, tail-reg, callsign or lat/lon/radius): "
+                                   + repr(query))
                 process_response(query, response)
 
     # timeout is handled differently from other exceptions and not re-raised
