@@ -25,6 +25,7 @@ from skysnoop.exceptions import (
     ValidationError,
     TimeoutError as SnoopTimeoutError,
     RateLimitError,
+    BackendConnectionError,
 )
 from playsound3 import playsound
 
@@ -54,6 +55,7 @@ SHORT_INCREMENT = 30
 LONG_INTERVAL_BASE = 300
 LONG_INTERVAL_MAX = 1800
 LONG_INCREMENT = 300
+WAIT_TYPES = ["sleep", "ratelimit", "overload", "error", "network", "n/a"]
 
 # TRACKING_SITE = "adsb.lol"
 TRACKING_SITE = "globe.airplanes.live"
@@ -205,14 +207,14 @@ async def snoop(conf_data: list(dict)):
                                    + repr(query))
                 process_response(query, response)
 
-    # timeout is handled differently from other exceptions and not re-raised
+    # SkySnoop timeouts are handled differently from other exceptions and not re-raised
     except SnoopTimeoutError:
         print("Request timed out at " + timestamp(conf_data))
         # intentionally different - do not re-raise timeout
 
     # most exceptions are re-raised to send them back to main()
-    except ValidationError as e:
-        print(f"Invalid parameter: {e} at " + timestamp(conf_data))
+    except (ValidationError, KeyboardInterrupt, BackendConnectionError) as e:
+        print(f"{e.__class__} {e} at " + timestamp(conf_data))
         raise
     except RateLimitError as e:
         print("Rate limit error: retry after " + interval_str(e.retry_after) + " at " + timestamp(conf_data))
@@ -220,11 +222,8 @@ async def snoop(conf_data: list(dict)):
     except APIError as e:
         print(f"API error: {e} at " + timestamp(conf_data))
         raise
-    except KeyboardInterrupt as e:
-        print(f"keyboard interrupt {e} at " + timestamp(conf_data))
-        raise
     except SkySnoopError as e:
-        print(f"SkySnoop Error: {e} at " + timestamp(conf_data))
+        print(f"SkySnoop error {e.__class__}: {e} at " + timestamp(conf_data))
         raise
 
 
@@ -266,7 +265,7 @@ def get_config() -> list[dict]:
 def totals_str(totals: dict) -> str:
     """generate a readable string with summary of total times in each type of waiting"""
     result = []
-    for wtype in ["sleep", "ratelimit", "overload", "error", "n/a"]:
+    for wtype in WAIT_TYPES:
         if wtype in totals:
             result.append(wtype + " = " + interval_str(totals[wtype]))
     return ", ".join(result)
@@ -300,13 +299,15 @@ def main() -> int:
             if short_interval < SHORT_INTERVAL_MAX:
                 short_interval += SHORT_INCREMENT
 
-            print("wait " + interval_str(interval) + " at " + timestamp(config_data))
+        # network problems
+        except (APIError, BackendConnectionError):
+            interval = long_interval  # longer wait after network problem
+            wait_type = "network"
 
         # catch all errors from the SkySnoop package
         except SkySnoopError:
-            interval = long_interval  # longer wait without additional back-off after error
+            interval = long_interval  # longer wait after error
             wait_type = "error"
-            print("wait " + interval_str(interval) + " at " + timestamp(config_data))
 
         # exit on keyboard interrupt (CTRL-C), reporting stats
         except KeyboardInterrupt:
